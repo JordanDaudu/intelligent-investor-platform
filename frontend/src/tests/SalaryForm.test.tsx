@@ -53,12 +53,12 @@ describe('Salary form ↔ bucket cards', () => {
     await user.clear(netInput);
     await user.type(netInput, '13600');
 
-    await waitFor(() =>
-      expect(screen.getByTestId('bucket-fixed-amount')).toHaveTextContent('$7,480.00'),
-    );
-    expect(screen.getByTestId('bucket-savings-amount')).toHaveTextContent('$1,360.00');
-    expect(screen.getByTestId('bucket-investments-amount')).toHaveTextContent('$1,360.00');
-    expect(screen.getByTestId('bucket-guilt-amount')).toHaveTextContent('$3,740.00');
+    await waitFor(() => {
+      expect(screen.getByTestId('bucket-fixed-amount')).toHaveTextContent('$7,480.00');
+      expect(screen.getByTestId('bucket-savings-amount')).toHaveTextContent('$1,360.00');
+      expect(screen.getByTestId('bucket-investments-amount')).toHaveTextContent('$1,360.00');
+      expect(screen.getByTestId('bucket-guilt-amount')).toHaveTextContent('$3,740.00');
+    });
   });
 
   it('Estimate button fills bank net as gross × 0.68', async () => {
