@@ -11,10 +11,6 @@ export const BUCKET_RATIOS = {
   guiltFreeSpending: 0.275,
 } as const;
 
-/** Allowed ranges for the two adjustable buckets (as decimals). */
-export const FIXED_COSTS_RANGE = { min: 0.5, max: 0.6 } as const;
-export const GUILT_FREE_RANGE = { min: 0.2, max: 0.35 } as const;
-
 /** Estimate net pay from gross when the user doesn't know their actual net. */
 export const BANK_NET_ESTIMATE_RATIO = 0.68;
 
