@@ -108,13 +108,6 @@ export default function DashboardPage() {
     setValues((v) => ({ ...v, bankNet: estimated }));
   };
 
-  const onBalance = () => {
-    const balanced = 100 - fixedCostsPercent - 10 - 10;
-    if (balanced >= 20 && balanced <= 35) {
-      setGuiltFreeSpendingPercent(balanced);
-    }
-  };
-
   const onSave = async () => {
     setSaveError(null);
     if (!values.name.trim()) {
