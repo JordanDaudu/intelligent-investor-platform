@@ -229,8 +229,9 @@ Pipeline file: `.github/workflows/ci.yml`. Stages:
 1. **Backend install** → **Backend unit tests** → **Backend integration tests** → **Backend build**
 2. **Frontend install** → **Frontend component tests** → **Frontend build**
 3. **Docker build validation** (PRs into dev/stage/main and pushes to those)
-4. **Staging deployment** + **Staging health check** (push to `stage`)
-5. **Production deployment placeholder** (push to `main`)
+4. **Cypress E2E** — Docker Compose stack + `/health` wait + `cypress run` + teardown (same trigger as Docker validation)
+5. **Staging deployment** + **Staging health check** (push to `stage`)
+6. **Production deployment placeholder** (push to `main`)
 
 Deploy jobs are conditional on real secrets (`STAGING_DEPLOY_HOST`, `STAGING_API_URL`, `PROD_DEPLOY_HOST`). Without them, the pipeline still passes — perfect for a graded scaffold.
 

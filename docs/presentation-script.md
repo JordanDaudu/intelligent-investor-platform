@@ -9,8 +9,8 @@
 1. Open the app in the browser.
 2. Type a name and a gross salary (e.g. `20000`).
 3. Click **Estimate (×0.68)** → bank-net auto-fills to `13600`.
-4. Point at the four bucket cards: `$7,480 / $1,360 / $1,360 / $3,740`.
-5. Scroll to the **15-year projection** chart — show that it goes up exponentially (compound).
+4. Point at the four bucket cards: `$7,480 / $1,360 / $1,360 / $3,740`. Note that these figures are fetched live from `POST /api/calculations/preview` — the frontend contains no duplicate bucket math.
+5. Scroll to the **15-year projection** chart — show that it goes up exponentially (compound). This data also comes from the backend preview response (`annualReturnRate: 0.07`, `projectionYears: 15`).
 6. Click **Save profile** → it appears in **Saved profiles**.
 7. Hit refresh in the browser → the profile is still there (proves DB persistence).
 8. Toggle dark mode → it sticks across reload (proves localStorage persistence).
@@ -60,6 +60,7 @@ Open `.github/workflows/ci.yml` in the IDE. Walk through:
 - Backend job (with the Postgres service container).
 - Frontend job.
 - Docker build validation job.
+- **Cypress E2E job** — spins up the full stack via Docker Compose, polls `/health`, runs `cypress run`, always tears down.
 - Staging deploy + health check.
 - Production placeholder (extra credit).
 

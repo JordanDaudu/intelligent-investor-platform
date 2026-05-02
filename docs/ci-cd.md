@@ -9,6 +9,7 @@ Pipeline: `.github/workflows/ci.yml`. Triggered on push to any `feature/*`, `dev
 | `backend`                          | every push / PR                                             | Backend install → Prisma generate → DB push → unit tests → integration tests → build |
 | `frontend`                         | every push / PR                                             | Frontend install → component tests → build                                    |
 | `docker-build`                     | PRs into dev/stage/main + pushes to those                   | `docker compose config` for both files, then builds both images               |
+| `cypress-e2e`                      | PRs into dev/stage/main + pushes to those                   | `docker compose up --build` → wait for `/health` → `cypress run` → `docker compose down -v` |
 | `staging-deployment`               | push to `stage`                                             | Placeholder deploy step (skips safely if `STAGING_DEPLOY_HOST` is missing)    |
 | `staging-health-check`             | push to `stage`                                             | Polls `${STAGING_API_URL}/health` until 200 (skips with warning if unset)     |
 | `production-deployment-placeholder`| push to `main`                                              | Placeholder for prod deploy (skips silently if `PROD_DEPLOY_HOST` is missing) |
@@ -39,6 +40,19 @@ The pipeline uses the named stages required by the brief:
 - Frontend component tests
 - Frontend build
 - Docker build validation
+- Cypress E2E
 - Staging deployment
 - Staging health check
 - Production deployment placeholder
+
+## CI/CD Evidence
+
+A successful GitHub Actions run should be captured before final submission and added here.
+
+Suggested screenshot path: `docs/assets/ci-success.png`
+
+Place the screenshot in `docs/assets/` (the folder is tracked via `docs/assets/.gitkeep`) and update this section with the embedded image once captured:
+
+```markdown
+![CI success](assets/ci-success.png)
+```
