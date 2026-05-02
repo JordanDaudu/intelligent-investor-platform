@@ -186,7 +186,14 @@ jobs:
         run: npm install --no-audit --no-fund
 
       - name: Start full stack via Docker Compose
-        run: docker compose up -d --build
+        run: docker compose up -d --build || {
+              echo "Docker Compose failed. Dumping service status and logs..."
+              docker compose ps || true
+              docker compose logs postgres || true
+              docker compose logs backend || true
+              docker compose logs frontend || true
+              exit 1
+            }
 
       - name: Wait for backend /health
         run: |
