@@ -3,14 +3,22 @@ import type { BucketBreakdown as BucketsT } from '../types/api';
 
 interface BucketBreakdownProps {
   buckets: BucketsT;
+  /** Fixed Costs ratio as a percentage (e.g. 55 = 55%). Defaults to 55. */
+  fixedCostsPercent?: number;
+  /** Guilt-Free Spending ratio as a percentage (e.g. 27.5 = 27.5%). Defaults to 27.5. */
+  guiltFreeSpendingPercent?: number;
 }
 
-export default function BucketBreakdown({ buckets }: BucketBreakdownProps) {
+export default function BucketBreakdown({
+  buckets,
+  fixedCostsPercent = 55,
+  guiltFreeSpendingPercent = 27.5,
+}: BucketBreakdownProps) {
   return (
     <section className="bucket-grid" aria-label="Spending buckets">
       <BucketCard
         label="Fixed Costs"
-        ratio={0.55}
+        ratio={fixedCostsPercent / 100}
         amount={buckets.fixedCosts}
         description="Rent, utilities, transport, groceries, debt minimums."
         accent="fixed"
@@ -34,7 +42,7 @@ export default function BucketBreakdown({ buckets }: BucketBreakdownProps) {
       />
       <BucketCard
         label="Guilt-Free Spending"
-        ratio={0.275}
+        ratio={guiltFreeSpendingPercent / 100}
         amount={buckets.guiltFreeSpending}
         description="Dining out, hobbies, entertainment — enjoy it."
         accent="guilt-free"

@@ -1,46 +1,33 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import SalaryForm, { type SalaryFormValues } from '../components/SalaryForm';
 import BucketBreakdown from '../components/BucketBreakdown';
 import ProjectionChart from '../components/ProjectionChart';
 import SavedProfiles from '../components/SavedProfiles';
 import HealthStatusCard from '../components/HealthStatusCard';
 import ScenarioLab from '../components/ScenarioLab';
+import AllocationControls from '../components/AllocationControls';
 import { investorApi } from '../api/investorApi';
-import type { FinancialProfile } from '../types/api';
-
-const ANNUAL_RATE = 0.07;
-const YEARS = 15;
+import type {
+  BucketBreakdown as BucketsT,
+  CalculationPreview,
+  FinancialProfile,
+  ProjectionPoint,
+} from '../types/api';
 
 const round2 = (n: number): number => Math.round(n * 100) / 100;
 
-interface BucketsT {
-  fixedCosts: number;
-  savingsGoals: number;
-  activeInvestments: number;
-  guiltFreeSpending: number;
-}
+const EMPTY_BUCKETS: BucketsT = {
+  fixedCosts: 0,
+  savingsGoals: 0,
+  activeInvestments: 0,
+  guiltFreeSpending: 0,
+};
 
-function computeBuckets(bankNet: number): BucketsT {
-  const safe = Number.isFinite(bankNet) && bankNet > 0 ? bankNet : 0;
-  return {
-    fixedCosts: round2(safe * 0.55),
-    savingsGoals: round2(safe * 0.10),
-    activeInvestments: round2(safe * 0.10),
-    guiltFreeSpending: round2(safe * 0.275),
-  };
-}
+const EMPTY_PROJECTION: ProjectionPoint[] = [];
 
-function computeProjection(
-  investment: number,
-  rate = ANNUAL_RATE,
-  years = YEARS,
-): { year: number; value: number }[] {
-  const safe = Number.isFinite(investment) && investment > 0 ? investment : 0;
-  return Array.from({ length: years }, (_, i) => {
-    const year = i + 1;
-    return { year, value: round2(safe * Math.pow(1 + rate, year)) };
-  });
-}
+/** Assignment-defined midpoint defaults */
+const DEFAULT_FIXED_COSTS_PCT = 55;
+const DEFAULT_GUILT_FREE_PCT = 27.5;
 
 export default function DashboardPage() {
   const [values, setValues] = useState<SalaryFormValues>({
@@ -48,17 +35,58 @@ export default function DashboardPage() {
     grossSalary: 0,
     bankNet: 0,
   });
+
+  /** Budget Allocation Control state — drives the preview API call */
+  const [fixedCostsPercent, setFixedCostsPercent] = useState(DEFAULT_FIXED_COSTS_PCT);
+  const [guiltFreeSpendingPercent, setGuiltFreeSpendingPercent] = useState(DEFAULT_GUILT_FREE_PCT);
+
+  const [preview, setPreview] = useState<CalculationPreview | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+
   const [profiles, setProfiles] = useState<FinancialProfile[]>([]);
   const [profilesLoading, setProfilesLoading] = useState(false);
   const [profilesError, setProfilesError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
-  const buckets = useMemo(() => computeBuckets(values.bankNet), [values.bankNet]);
-  const projection = useMemo(
-    () => computeProjection(buckets.activeInvestments),
-    [buckets.activeInvestments],
-  );
+  useEffect(() => {
+    if (values.bankNet <= 0) {
+      setPreview(null);
+      setPreviewError(null);
+      setPreviewLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    const timeoutId = window.setTimeout(() => {
+      setPreviewLoading(true);
+      setPreviewError(null);
+
+      investorApi
+        .preview({
+          grossSalary: values.grossSalary,
+          bankNet: values.bankNet,
+          fixedCostsPercent,
+          guiltFreeSpendingPercent,
+        })
+        .then((data) => {
+          if (!cancelled) setPreview(data);
+        })
+        .catch((e) => {
+          if (!cancelled)
+            setPreviewError(e instanceof Error ? e.message : 'Preview request failed');
+        })
+        .finally(() => {
+          if (!cancelled) setPreviewLoading(false);
+        });
+    }, 250);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeoutId);
+    };
+  }, [values.grossSalary, values.bankNet, fixedCostsPercent, guiltFreeSpendingPercent]);
 
   const refreshProfiles = useCallback(async () => {
     setProfilesLoading(true);
@@ -78,6 +106,8 @@ export default function DashboardPage() {
   }, [refreshProfiles]);
 
   const onEstimateBankNet = () => {
+    // Helper only — estimates take-home from gross. The bucket/projection
+    // results always come from the backend preview API, not this formula.
     const estimated = round2(values.grossSalary * 0.68);
     setValues((v) => ({ ...v, bankNet: estimated }));
   };
@@ -98,6 +128,8 @@ export default function DashboardPage() {
         name: values.name.trim(),
         grossSalary: values.grossSalary,
         bankNet: values.bankNet,
+        fixedCostsPercent,
+        guiltFreeSpendingPercent,
       });
       await refreshProfiles();
     } catch (e) {
@@ -113,6 +145,8 @@ export default function DashboardPage() {
       grossSalary: Number(p.grossSalary),
       bankNet: Number(p.bankNet),
     });
+    setFixedCostsPercent(p.fixedCostsPercent ?? DEFAULT_FIXED_COSTS_PCT);
+    setGuiltFreeSpendingPercent(p.guiltFreeSpendingPercent ?? DEFAULT_GUILT_FREE_PCT);
     setSaveError(null);
   };
 
@@ -125,6 +159,14 @@ export default function DashboardPage() {
       setProfilesError(e instanceof Error ? e.message : 'Failed to delete profile');
     }
   };
+
+  const buckets = preview?.buckets ?? EMPTY_BUCKETS;
+  const projection = preview?.projection ?? EMPTY_PROJECTION;
+  const annualReturnRate = preview?.annualReturnRate ?? 0.07;
+  const projectionYears = preview?.projectionYears ?? 15;
+  // Use ratios from the backend response (reflects overrides); fall back to state
+  const displayFixedPct = preview?.fixedCostsPercent ?? fixedCostsPercent;
+  const displayGuiltPct = preview?.guiltFreeSpendingPercent ?? guiltFreeSpendingPercent;
 
   return (
     <div className="dashboard">
@@ -146,16 +188,33 @@ export default function DashboardPage() {
           saving={saving}
           error={saveError}
         />
-
         <HealthStatusCard />
       </div>
 
-      <BucketBreakdown buckets={buckets} />
+      {previewError && !previewLoading && (
+        <div className="alert alert--error" role="alert">
+          Calculation error: {previewError}
+        </div>
+      )}
+
+      <BucketBreakdown
+        buckets={buckets}
+        fixedCostsPercent={displayFixedPct}
+        guiltFreeSpendingPercent={displayGuiltPct}
+      />
+
+      <AllocationControls
+        bankNet={values.bankNet}
+        fixedCostsPercent={fixedCostsPercent}
+        guiltFreeSpendingPercent={guiltFreeSpendingPercent}
+        onFixedCostsChange={setFixedCostsPercent}
+        onGuiltFreeChange={setGuiltFreeSpendingPercent}
+      />
 
       <ProjectionChart
         data={projection}
-        annualReturnRate={ANNUAL_RATE}
-        years={YEARS}
+        annualReturnRate={annualReturnRate}
+        years={projectionYears}
       />
 
       <ScenarioLab defaultMonthlyInvestment={buckets.activeInvestments} />

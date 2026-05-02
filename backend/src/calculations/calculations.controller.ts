@@ -10,10 +10,17 @@ export class CalculationsController {
    * POST /api/calculations/preview
    * Stateless calculation — does not touch the database.
    * The actual math lives entirely in CalculationsService (clean architecture).
+   *
+   * Optional body fields `fixedCostsPercent` and `guiltFreeSpendingPercent` allow
+   * the Budget Allocation Controls in the frontend to request custom bucket ratios.
+   * Omitting them keeps the assignment-default behaviour (55% / 27.5%).
    */
   @Post('preview')
   @HttpCode(HttpStatus.OK)
   preview(@Body() dto: CalculationPreviewDto) {
-    return this.calculations.calculateFullPlan(dto.grossSalary, dto.bankNet);
+    return this.calculations.calculateFullPlan(dto.grossSalary, dto.bankNet, {
+      fixedCostsPercent: dto.fixedCostsPercent,
+      guiltFreeSpendingPercent: dto.guiltFreeSpendingPercent,
+    });
   }
 }

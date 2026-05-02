@@ -71,6 +71,41 @@ describe('Intelligent Investor API (e2e)', () => {
         .send({ grossSalary: -1, bankNet: 1 })
         .expect(400);
     });
+
+    it('accepts custom percentage overrides and returns adjusted buckets', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/api/calculations/preview')
+        .send({
+          grossSalary: 20000,
+          bankNet: 13600,
+          fixedCostsPercent: 50,
+          guiltFreeSpendingPercent: 25,
+        })
+        .expect(200);
+
+      expect(res.body.buckets.fixedCosts).toBe(6800);        // 13600 × 0.50
+      expect(res.body.buckets.savingsGoals).toBe(1360);      // always 10%
+      expect(res.body.buckets.activeInvestments).toBe(1360); // always 10%
+      expect(res.body.buckets.guiltFreeSpending).toBe(3400); // 13600 × 0.25
+      expect(res.body.fixedCostsPercent).toBe(50);
+      expect(res.body.guiltFreeSpendingPercent).toBe(25);
+      // Balanced at exactly 100% — projection seed unchanged (active investments fixed)
+      expect(res.body.projection[0]).toEqual({ year: 1, value: 1455.2 });
+    });
+
+    it('rejects fixedCostsPercent below the 50% floor', async () => {
+      await request(app.getHttpServer())
+        .post('/api/calculations/preview')
+        .send({ grossSalary: 20000, bankNet: 13600, fixedCostsPercent: 45 })
+        .expect(400);
+    });
+
+    it('rejects guiltFreeSpendingPercent above the 35% ceiling', async () => {
+      await request(app.getHttpServer())
+        .post('/api/calculations/preview')
+        .send({ grossSalary: 20000, bankNet: 13600, guiltFreeSpendingPercent: 40 })
+        .expect(400);
+    });
   });
 
   describe('Profiles CRUD', () => {
