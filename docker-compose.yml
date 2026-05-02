@@ -1,7 +1,6 @@
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: iip_postgres
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-investor_user}
@@ -21,16 +20,16 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: iip_backend
     restart: unless-stopped
     depends_on:
       postgres:
         condition: service_healthy
     environment:
       NODE_ENV: ${NODE_ENV:-development}
-      BACKEND_PORT: ${BACKEND_PORT:-8000}
+      # Container always listens on 8000; host port is configurable via BACKEND_PORT.
+      BACKEND_PORT: 8000
       BACKEND_HOST: 0.0.0.0
-      DATABASE_URL: ${DATABASE_URL:-postgresql://investor_user:investor_password@postgres:5432/investor_db}
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-investor_user}:${POSTGRES_PASSWORD:-investor_password}@postgres:5432/${POSTGRES_DB:-investor_db}"
     ports:
       - "${BACKEND_PORT:-8000}:8000"
     healthcheck:
@@ -46,7 +45,6 @@ services:
       dockerfile: Dockerfile
       args:
         VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8000}
-    container_name: iip_frontend
     restart: unless-stopped
     depends_on:
       backend:

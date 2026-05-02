@@ -10,7 +10,6 @@
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: iip_postgres_prod
     restart: always
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
@@ -28,14 +27,14 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: iip_backend_prod
     restart: always
     depends_on:
       postgres:
         condition: service_healthy
     environment:
       NODE_ENV: production
-      BACKEND_PORT: ${BACKEND_PORT:-8000}
+      # Container always listens on 8000; host port is configurable via BACKEND_PORT.
+      BACKEND_PORT: 8000
       BACKEND_HOST: 0.0.0.0
       DATABASE_URL: ${DATABASE_URL}
     ports:
@@ -46,11 +45,6 @@ services:
       timeout: 5s
       retries: 5
       start_period: 30s
-    deploy:
-      resources:
-        limits:
-          cpus: "1.0"
-          memory: 512M
 
   frontend:
     build:
@@ -58,18 +52,12 @@ services:
       dockerfile: Dockerfile
       args:
         VITE_API_BASE_URL: ${VITE_API_BASE_URL}
-    container_name: iip_frontend_prod
     restart: always
     depends_on:
       backend:
         condition: service_healthy
     ports:
       - "${FRONTEND_PORT:-80}:80"
-    deploy:
-      resources:
-        limits:
-          cpus: "0.5"
-          memory: 128M
 
 volumes:
   intelligent_investor_postgres_data:
