@@ -54,33 +54,37 @@ export default function DashboardPage() {
     if (values.bankNet <= 0) {
       setPreview(null);
       setPreviewError(null);
+      setPreviewLoading(false);
       return;
     }
 
     let cancelled = false;
-    setPreviewLoading(true);
-    setPreviewError(null);
+    const timeoutId = window.setTimeout(() => {
+      setPreviewLoading(true);
+      setPreviewError(null);
 
-    investorApi
-      .preview({
-        grossSalary: values.grossSalary,
-        bankNet: values.bankNet,
-        fixedCostsPercent,
-        guiltFreeSpendingPercent,
-      })
-      .then((data) => {
-        if (!cancelled) setPreview(data);
-      })
-      .catch((e) => {
-        if (!cancelled)
-          setPreviewError(e instanceof Error ? e.message : 'Preview request failed');
-      })
-      .finally(() => {
-        if (!cancelled) setPreviewLoading(false);
-      });
+      investorApi
+        .preview({
+          grossSalary: values.grossSalary,
+          bankNet: values.bankNet,
+          fixedCostsPercent,
+          guiltFreeSpendingPercent,
+        })
+        .then((data) => {
+          if (!cancelled) setPreview(data);
+        })
+        .catch((e) => {
+          if (!cancelled)
+            setPreviewError(e instanceof Error ? e.message : 'Preview request failed');
+        })
+        .finally(() => {
+          if (!cancelled) setPreviewLoading(false);
+        });
+    }, 250);
 
     return () => {
       cancelled = true;
+      window.clearTimeout(timeoutId);
     };
   }, [values.grossSalary, values.bankNet, fixedCostsPercent, guiltFreeSpendingPercent]);
 
