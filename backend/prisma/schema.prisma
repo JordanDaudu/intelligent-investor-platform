@@ -12,6 +12,8 @@ model FinancialProfile {
   name        String
   grossSalary Decimal  @db.Decimal(14, 2)
   bankNet     Decimal  @db.Decimal(14, 2)
+  fixedCostsPercent       Float?
+  guiltFreeSpendingPercent Float?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 

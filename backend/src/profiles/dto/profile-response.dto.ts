@@ -15,6 +15,8 @@ export interface ProfileResponseDto {
   name: string;
   grossSalary: number;
   bankNet: number;
+  fixedCostsPercent: number | null;
+  guiltFreeSpendingPercent: number | null;
   createdAt: string;
   updatedAt: string;
   spendingPlan: SpendingPlanResponse | null;

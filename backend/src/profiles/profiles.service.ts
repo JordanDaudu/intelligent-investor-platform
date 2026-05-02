@@ -38,13 +38,22 @@ export class ProfilesService {
   ) {}
 
   async create(dto: CreateProfileDto): Promise<ProfileResponseDto> {
-    const plan = this.calculations.calculateFullPlan(dto.grossSalary, dto.bankNet);
+    const plan = this.calculations.calculateFullPlan(
+      dto.grossSalary,
+      dto.bankNet,
+      {
+        fixedCostsPercent: dto.fixedCostsPercent,
+        guiltFreeSpendingPercent: dto.guiltFreeSpendingPercent,
+      },
+    );
 
     const created = await this.prisma.financialProfile.create({
       data: {
         name: dto.name,
         grossSalary: new Prisma.Decimal(dto.grossSalary),
         bankNet: new Prisma.Decimal(dto.bankNet),
+        fixedCostsPercent: dto.fixedCostsPercent ?? null,
+        guiltFreeSpendingPercent: dto.guiltFreeSpendingPercent ?? null,
         spendingPlan: {
           create: {
             fixedCosts: new Prisma.Decimal(plan.buckets.fixedCosts),
@@ -100,6 +109,8 @@ export class ProfilesService {
       name: row.name,
       grossSalary: Number(row.grossSalary),
       bankNet: Number(row.bankNet),
+      fixedCostsPercent: row.fixedCostsPercent ?? null,
+      guiltFreeSpendingPercent: row.guiltFreeSpendingPercent ?? null,
       createdAt: row.createdAt.toISOString(),
       updatedAt: row.updatedAt.toISOString(),
       spendingPlan: row.spendingPlan

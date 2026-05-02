@@ -11,6 +11,10 @@ export const BUCKET_RATIOS = {
   guiltFreeSpending: 0.275,
 } as const;
 
+/** Allowed ranges for the two adjustable buckets (as decimals). */
+export const FIXED_COSTS_RANGE = { min: 0.5, max: 0.6 } as const;
+export const GUILT_FREE_RANGE = { min: 0.2, max: 0.35 } as const;
+
 /** Estimate net pay from gross when the user doesn't know their actual net. */
 export const BANK_NET_ESTIMATE_RATIO = 0.68;
 
@@ -37,6 +41,17 @@ export interface FullPlan {
   projection: ProjectionPoint[];
   annualReturnRate: number;
   projectionYears: number;
+  /** Actual fixed-costs ratio used, expressed as a percentage (e.g. 55 = 55%). */
+  fixedCostsPercent: number;
+  /** Actual guilt-free spending ratio used, expressed as a percentage (e.g. 27.5 = 27.5%). */
+  guiltFreeSpendingPercent: number;
+}
+
+export interface FullPlanOverrides {
+  /** Override for Fixed Costs, as a percentage (50–60). */
+  fixedCostsPercent?: number;
+  /** Override for Guilt-Free Spending, as a percentage (20–35). */
+  guiltFreeSpendingPercent?: number;
 }
 
 const round2 = (n: number): number => Math.round(n * 100) / 100;
@@ -51,7 +66,7 @@ export class CalculationsService {
     return round2(grossSalary * BANK_NET_ESTIMATE_RATIO);
   }
 
-  /** Fixed costs bucket: Bank Net × 55% */
+  /** Fixed costs bucket: Bank Net × 55% (default) */
   calculateFixedCosts(bankNet: number): number {
     return this.bucket(bankNet, BUCKET_RATIOS.fixedCosts);
   }
@@ -66,7 +81,7 @@ export class CalculationsService {
     return this.bucket(bankNet, BUCKET_RATIOS.activeInvestments);
   }
 
-  /** Guilt-free spending bucket: Bank Net × 27.5% */
+  /** Guilt-free spending bucket: Bank Net × 27.5% (default) */
   calculateGuiltFreeSpending(bankNet: number): number {
     return this.bucket(bankNet, BUCKET_RATIOS.guiltFreeSpending);
   }
@@ -103,8 +118,18 @@ export class CalculationsService {
   /**
    * Calculate the full plan for the required default scenario (7% / 15 years).
    * Used by both the preview endpoint and the persisted profile create flow.
+   *
+   * @param overrides  Optional ratio overrides from the Budget Allocation Controls.
+   *                   `fixedCostsPercent` must be 50–60; `guiltFreeSpendingPercent`
+   *                   must be 20–35. Savings Goals (10%) and Active Investments (10%)
+   *                   are always fixed.  When an override is omitted the assignment
+   *                   midpoint default is used.
    */
-  calculateFullPlan(grossSalary: number, bankNet: number): FullPlan {
+  calculateFullPlan(
+    grossSalary: number,
+    bankNet: number,
+    overrides?: FullPlanOverrides,
+  ): FullPlan {
     if (!Number.isFinite(grossSalary) || grossSalary < 0) {
       throw new Error('grossSalary must be a non-negative number');
     }
@@ -112,11 +137,21 @@ export class CalculationsService {
       throw new Error('bankNet must be a non-negative number');
     }
 
+    const fixedRatio =
+      overrides?.fixedCostsPercent != null
+        ? overrides.fixedCostsPercent / 100
+        : BUCKET_RATIOS.fixedCosts;
+
+    const guiltRatio =
+      overrides?.guiltFreeSpendingPercent != null
+        ? overrides.guiltFreeSpendingPercent / 100
+        : BUCKET_RATIOS.guiltFreeSpending;
+
     const buckets: BucketBreakdown = {
-      fixedCosts: this.calculateFixedCosts(bankNet),
+      fixedCosts: this.bucket(bankNet, fixedRatio),
       savingsGoals: this.calculateSavingsGoals(bankNet),
       activeInvestments: this.calculateActiveInvestments(bankNet),
-      guiltFreeSpending: this.calculateGuiltFreeSpending(bankNet),
+      guiltFreeSpending: this.bucket(bankNet, guiltRatio),
     };
 
     return {
@@ -126,6 +161,8 @@ export class CalculationsService {
       projection: this.calculateWealthProjection(buckets.activeInvestments),
       annualReturnRate: REQUIRED_ANNUAL_RETURN,
       projectionYears: REQUIRED_PROJECTION_YEARS,
+      fixedCostsPercent: round2(fixedRatio * 100),
+      guiltFreeSpendingPercent: round2(guiltRatio * 100),
     };
   }
 
