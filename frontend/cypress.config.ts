@@ -1,0 +1,12 @@
+import { defineConfig } from 'cypress';
+
+export default defineConfig({
+  e2e: {
+    baseUrl: process.env.CYPRESS_BASE_URL ?? 'http://localhost:5000',
+    supportFile: false,
+    specPattern: 'cypress/e2e/**/*.cy.{ts,tsx,js,jsx}',
+    video: false,
+    screenshotOnRunFailure: true,
+    defaultCommandTimeout: 10000,
+  },
+});
