@@ -132,6 +132,17 @@ h2 { font-size: 1.15rem; }
 .form-grid { display: grid; gap: 14px; grid-template-columns: 1fr 1fr 1fr; }
 @media (max-width: 720px) { .form-grid { grid-template-columns: 1fr; } }
 
+.salary-form__grid {
+  display: grid; gap: 14px;
+  grid-template-columns: 1fr 1fr;
+}
+.salary-form__name {
+  grid-column: 1 / -1;
+}
+@media (max-width: 720px) {
+  .salary-form__grid { grid-template-columns: 1fr; }
+}
+
 .field { display: flex; flex-direction: column; gap: 6px; }
 .field__label { font-size: 0.85rem; color: var(--text-muted); }
 .field input[type="text"],
@@ -229,6 +240,35 @@ h2 { font-size: 1.15rem; }
 .profile-list__meta { font-size: 0.8rem; }
 .profile-list__actions { display: flex; gap: 8px; }
 .empty-state { color: var(--text-muted); padding: 14px; text-align: center; border: 1px dashed var(--border); border-radius: var(--radius-sm); }
+
+/* ----- Allocation Controls ----- */
+.allocation-controls__sliders {
+  display: grid; gap: 14px; grid-template-columns: repeat(4, 1fr); margin-bottom: 16px;
+}
+@media (max-width: 900px) { .allocation-controls__sliders { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 540px) { .allocation-controls__sliders { grid-template-columns: 1fr; } }
+
+.allocation-summary {
+  display: flex; flex-direction: column; gap: 8px;
+  padding: 12px 14px; border-radius: var(--radius-sm);
+  background: var(--surface-2); border: 1px solid var(--border);
+  margin-bottom: 14px;
+}
+.allocation-summary__row {
+  display: flex; justify-content: space-between; align-items: center; gap: 12px;
+  font-size: 0.9rem;
+}
+.allocation-summary__label { color: var(--text-muted); }
+
+.allocation-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+
+.status-badge {
+  display: inline-block; padding: 3px 10px; border-radius: 999px;
+  font-size: 0.78rem; font-weight: 600; letter-spacing: 0.15px;
+}
+.status--balanced   { background: rgba(16, 185, 129, 0.15); color: var(--accent-strong); }
+.status--over       { background: rgba(220, 38, 38, 0.12);  color: var(--danger); }
+.status--under      { background: rgba(245, 158, 11, 0.18); color: #b45309; }
 
 .health-list { list-style: none; padding: 0; margin: 8px 0 0; display: flex; flex-direction: column; gap: 8px; }
 .health-list li { display: flex; justify-content: space-between; align-items: center; }

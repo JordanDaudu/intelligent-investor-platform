@@ -45,12 +45,21 @@ async function http<T>(path: string, init?: RequestInit): Promise<T> {
   return (await res.json()) as T;
 }
 
+export interface PreviewInput {
+  grossSalary: number;
+  bankNet: number;
+  /** Optional Fixed Costs override (50–60). Defaults to 55 on the backend. */
+  fixedCostsPercent?: number;
+  /** Optional Guilt-Free Spending override (20–35). Defaults to 27.5 on the backend. */
+  guiltFreeSpendingPercent?: number;
+}
+
 export const investorApi = {
   baseUrl: BASE_URL,
 
   health: () => http<HealthStatus>('/health'),
 
-  preview: (input: { grossSalary: number; bankNet: number }) =>
+  preview: (input: PreviewInput) =>
     http<CalculationPreview>('/api/calculations/preview', {
       method: 'POST',
       body: JSON.stringify(input),
@@ -60,7 +69,13 @@ export const investorApi = {
 
   getProfile: (id: string) => http<FinancialProfile>(`/api/profiles/${id}`),
 
-  createProfile: (input: { name: string; grossSalary: number; bankNet: number }) =>
+  createProfile: (input: {
+    name: string;
+    grossSalary: number;
+    bankNet: number;
+    fixedCostsPercent?: number;
+    guiltFreeSpendingPercent?: number;
+  }) =>
     http<FinancialProfile>('/api/profiles', {
       method: 'POST',
       body: JSON.stringify(input),

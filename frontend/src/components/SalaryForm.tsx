@@ -48,8 +48,8 @@ export default function SalaryForm({
         </p>
       </div>
 
-      <div className="form-grid">
-        <label className="field" htmlFor={nameId}>
+      <div className="salary-form__grid">
+        <label className="field salary-form__name" htmlFor={nameId}>
           <span className="field__label">Name</span>
           <input
             id={nameId}
@@ -94,7 +94,7 @@ export default function SalaryForm({
             />
             <button
               type="button"
-              className="btn btn--ghost"
+              className="btn btn--ghost btn--small"
               onClick={onEstimateBankNet}
               title="Estimate Bank Net = Gross × 0.68"
             >

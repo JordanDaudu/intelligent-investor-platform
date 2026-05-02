@@ -17,6 +17,10 @@ export interface CalculationPreview {
   projection: ProjectionPoint[];
   annualReturnRate: number;
   projectionYears: number;
+  /** Fixed Costs ratio used, as a percentage (e.g. 55 = 55%). */
+  fixedCostsPercent: number;
+  /** Guilt-Free Spending ratio used, as a percentage (e.g. 27.5 = 27.5%). */
+  guiltFreeSpendingPercent: number;
 }
 
 export interface SpendingPlan {
@@ -34,6 +38,8 @@ export interface FinancialProfile {
   name: string;
   grossSalary: number;
   bankNet: number;
+  fixedCostsPercent: number | null;
+  guiltFreeSpendingPercent: number | null;
   createdAt: string;
   updatedAt: string;
   spendingPlan: SpendingPlan | null;
