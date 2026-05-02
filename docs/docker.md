@@ -25,7 +25,7 @@ Same shape, but:
 
 - `restart: always`
 - All credentials sourced from env vars (no defaults).
-- Resource limits set on backend / frontend.
+- Production resource limits are intentionally left to the target orchestrator or hosting provider.
 - Frontend exposes port 80 by default for direct hosting behind a reverse proxy.
 
 ```bash
