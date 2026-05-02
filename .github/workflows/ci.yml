@@ -1,0 +1,319 @@
+name: CI / CD
+
+on:
+  push:
+    branches:
+      - "feature/**"
+      - dev
+      - stage
+      - main
+  pull_request:
+    branches:
+      - dev
+      - stage
+      - main
+
+jobs:
+  # =========================================================================
+  # Backend — install / unit / integration / build
+  # =========================================================================
+  backend:
+    name: Backend (NestJS)
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: investor_user
+          POSTGRES_PASSWORD: investor_password
+          POSTGRES_DB: investor_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U investor_user -d investor_db"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://investor_user:investor_password@localhost:5432/investor_db
+      BACKEND_PORT: "8000"
+      BACKEND_HOST: "0.0.0.0"
+      NODE_ENV: test
+
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Backend install
+        run: npm install --no-audit --no-fund
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Apply database schema
+        run: npx prisma db push --skip-generate
+
+      - name: Backend unit tests
+        run: npm test -- --runInBand
+
+      - name: Backend integration tests
+        run: npm run test:e2e
+
+      - name: Backend build
+        run: npm run build
+
+  # =========================================================================
+  # Frontend — install / component tests / build
+  # =========================================================================
+  frontend:
+    name: Frontend (React + Vite)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Frontend install
+        run: npm install --no-audit --no-fund
+
+      - name: Frontend component tests
+        run: npm test
+
+      - name: Frontend build
+        env:
+          VITE_API_BASE_URL: http://localhost:8000
+        run: npm run build
+
+  # =========================================================================
+  # Docker build validation — only on PRs into dev/stage/main and pushes to
+  # those branches (skipped on noisy feature/* push to keep CI fast).
+  # =========================================================================
+  docker-build:
+    name: Docker build validation
+    runs-on: ubuntu-latest
+    needs: [backend, frontend]
+    if: >-
+      github.event_name == 'pull_request' ||
+      github.ref == 'refs/heads/dev' ||
+      github.ref == 'refs/heads/stage' ||
+      github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Validate docker-compose syntax
+        run: docker compose -f docker-compose.yml config
+
+      - name: Validate prod compose syntax
+        env:
+          POSTGRES_USER: investor_user
+          POSTGRES_PASSWORD: investor_password
+          POSTGRES_DB: investor_db
+          DATABASE_URL: postgresql://investor_user:investor_password@postgres:5432/investor_db
+          VITE_API_BASE_URL: http://localhost:8000
+        run: docker compose -f docker-compose.prod.yml config
+
+      - name: Build backend image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          push: false
+          tags: iip-backend:ci
+
+      - name: Build frontend image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./frontend
+          push: false
+          tags: iip-frontend:ci
+          build-args: |
+            VITE_API_BASE_URL=http://localhost:8000
+
+  # =========================================================================
+  # Cypress E2E — spins up the full stack via Docker Compose, waits for the
+  # backend /health endpoint, then runs the Cypress suite.
+  # Runs on the same branches as docker-build to avoid burning minutes on
+  # every feature-branch push.
+  # =========================================================================
+  cypress-e2e:
+    name: Cypress E2E
+    runs-on: ubuntu-latest
+    needs: [backend, frontend]
+    if: >-
+      github.event_name == 'pull_request' ||
+      github.ref == 'refs/heads/dev' ||
+      github.ref == 'refs/heads/stage' ||
+      github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend deps (provides Cypress binary)
+        working-directory: frontend
+        run: npm install --no-audit --no-fund
+
+      - name: Start full stack via Docker Compose
+        run: |
+          docker compose up -d --build || {
+            echo "Docker Compose failed. Dumping service status and logs..."
+            docker compose ps || true
+            docker compose logs postgres || true
+            docker compose logs backend || true
+            docker compose logs frontend || true
+            exit 1
+          }
+
+      - name: Wait for backend /health
+        run: |
+          echo "Waiting for backend to be healthy..."
+          for i in $(seq 1 30); do
+            if curl -fsS http://localhost:8000/health; then
+              echo ""
+              echo "Backend is healthy (attempt $i)."
+              break
+            fi
+            echo "Attempt $i/30: not ready yet, retrying in 5s..."
+            sleep 5
+            if [ "$i" -eq 30 ]; then
+              echo "Backend did not become healthy in time."
+              docker compose logs backend
+              exit 1
+            fi
+          done
+
+      - name: Run Cypress E2E tests
+        working-directory: frontend
+        env:
+          CYPRESS_BASE_URL: http://localhost:5173
+        run: npm run cypress:run
+
+      - name: Print Docker Compose logs on failure
+        if: failure()
+        run: docker compose logs
+
+      - name: Tear down Docker Compose
+        if: always()
+        run: docker compose down -v
+
+  # =========================================================================
+  # Staging deployment (push/merge to stage). Conditional on secrets being
+  # configured — skips safely otherwise so CI still passes.
+  # =========================================================================
+  staging-deployment:
+    name: Staging deployment
+    runs-on: ubuntu-latest
+    needs: [backend, frontend, docker-build]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/stage'
+    environment: staging
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check for staging secrets
+        id: secrets
+        env:
+          STAGING_DEPLOY_HOST: ${{ secrets.STAGING_DEPLOY_HOST }}
+        run: |
+          if [ -n "${STAGING_DEPLOY_HOST}" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Staging deploy secrets not configured — skipping deploy step."
+          fi
+
+      - name: Deploy to staging (placeholder)
+        if: steps.secrets.outputs.configured == 'true'
+        env:
+          STAGING_DEPLOY_HOST: ${{ secrets.STAGING_DEPLOY_HOST }}
+        run: |
+          echo "Deploying to ${STAGING_DEPLOY_HOST}..."
+          echo "Replace this with your real deployment command (ssh + docker compose pull && up -d, or platform-specific CLI)."
+
+  staging-health-check:
+    name: Staging health check
+    runs-on: ubuntu-latest
+    needs: staging-deployment
+    if: github.event_name == 'push' && github.ref == 'refs/heads/stage'
+    steps:
+      - name: Probe /health
+        env:
+          STAGING_API_URL: ${{ secrets.STAGING_API_URL }}
+        run: |
+          if [ -z "${STAGING_API_URL}" ]; then
+            echo "::warning::STAGING_API_URL not set — skipping live health check."
+            exit 0
+          fi
+          for i in 1 2 3 4 5 6; do
+            if curl -fsS "${STAGING_API_URL}/health"; then
+              echo "Staging is healthy."
+              exit 0
+            fi
+            echo "Waiting for staging health... attempt $i"
+            sleep 10
+          done
+          echo "::error::Staging /health did not return 200"
+          exit 1
+
+  # =========================================================================
+  # Production deployment placeholder (push/merge to main).
+  # Conditional on secrets — pipeline NEVER fails for missing prod secrets.
+  # =========================================================================
+  production-deployment-placeholder:
+    name: Production deployment placeholder
+    runs-on: ubuntu-latest
+    needs: [backend, frontend]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    environment: production
+    steps:
+      - name: Check for production secrets
+        id: prod_secrets
+        env:
+          PROD_DEPLOY_HOST: ${{ secrets.PROD_DEPLOY_HOST }}
+        run: |
+          if [ -n "${PROD_DEPLOY_HOST}" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Production deploy secrets not configured — placeholder run only (extra credit)."
+          fi
+
+      - name: Deploy to production (placeholder)
+        if: steps.prod_secrets.outputs.configured == 'true'
+        env:
+          PROD_DEPLOY_HOST: ${{ secrets.PROD_DEPLOY_HOST }}
+        run: |
+          echo "Deploying to production at ${PROD_DEPLOY_HOST}..."
+          echo "Replace with your real production deploy command."
