@@ -1,17 +1,16 @@
 import { useCallback, useEffect, useState } from 'react';
 import SalaryForm, { type SalaryFormValues } from '../components/SalaryForm';
 import BucketBreakdown from '../components/BucketBreakdown';
-import ProjectionChart from '../components/ProjectionChart';
 import SavedProfiles from '../components/SavedProfiles';
 import HealthStatusCard from '../components/HealthStatusCard';
-import ScenarioLab from '../components/ScenarioLab';
+import InvestmentProjection from '../components/InvestmentProjection';
+import MonthlyContributionProjection from '../components/MonthlyContributionProjection';
 import AllocationControls from '../components/AllocationControls';
 import { investorApi } from '../api/investorApi';
 import type {
   BucketBreakdown as BucketsT,
   CalculationPreview,
   FinancialProfile,
-  ProjectionPoint,
 } from '../types/api';
 
 const round2 = (n: number): number => Math.round(n * 100) / 100;
@@ -22,8 +21,6 @@ const EMPTY_BUCKETS: BucketsT = {
   activeInvestments: 0,
   guiltFreeSpending: 0,
 };
-
-const EMPTY_PROJECTION: ProjectionPoint[] = [];
 
 /** Assignment-defined midpoint defaults */
 const DEFAULT_FIXED_COSTS_PCT = 55;
@@ -161,9 +158,6 @@ export default function DashboardPage() {
   };
 
   const buckets = preview?.buckets ?? EMPTY_BUCKETS;
-  const projection = preview?.projection ?? EMPTY_PROJECTION;
-  const annualReturnRate = preview?.annualReturnRate ?? 0.07;
-  const projectionYears = preview?.projectionYears ?? 15;
   // Use ratios from the backend response (reflects overrides); fall back to state
   const displayFixedPct = preview?.fixedCostsPercent ?? fixedCostsPercent;
   const displayGuiltPct = preview?.guiltFreeSpendingPercent ?? guiltFreeSpendingPercent;
@@ -211,13 +205,9 @@ export default function DashboardPage() {
         onGuiltFreeChange={setGuiltFreeSpendingPercent}
       />
 
-      <ProjectionChart
-        data={projection}
-        annualReturnRate={annualReturnRate}
-        years={projectionYears}
-      />
+      <InvestmentProjection defaultInvestmentAmount={buckets.activeInvestments} />
 
-      <ScenarioLab defaultMonthlyInvestment={buckets.activeInvestments} />
+      <MonthlyContributionProjection defaultMonthlyContribution={buckets.activeInvestments} />
 
       <SavedProfiles
         profiles={profiles}

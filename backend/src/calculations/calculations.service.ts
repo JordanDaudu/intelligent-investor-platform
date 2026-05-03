@@ -162,6 +162,44 @@ export class CalculationsService {
     };
   }
 
+  /**
+   * Future Value of recurring monthly contributions (extra-credit calculator).
+   * Year y value = monthlyContribution × ((1 + monthlyRate)^(y×12) − 1) / monthlyRate
+   * Safe at rate = 0: value = monthlyContribution × months
+   *
+   * Do NOT modify calculateWealthProjection or calculateFullPlan — the required
+   * assignment projection is separate and must remain unchanged.
+   */
+  calculateMonthlyContributionProjection(
+    monthlyContribution: number,
+    annualReturnRate: number = REQUIRED_ANNUAL_RETURN,
+    years: number = REQUIRED_PROJECTION_YEARS,
+  ): ProjectionPoint[] {
+    if (!Number.isFinite(monthlyContribution) || monthlyContribution < 0) {
+      throw new Error('monthlyContribution must be a non-negative number');
+    }
+    if (!Number.isFinite(annualReturnRate) || annualReturnRate < 0) {
+      throw new Error('annualReturnRate must be a finite non-negative number');
+    }
+    if (!Number.isInteger(years) || years <= 0) {
+      throw new Error('years must be a positive integer');
+    }
+
+    const out: ProjectionPoint[] = [];
+    for (let y = 1; y <= years; y++) {
+      const months = y * 12;
+      let value: number;
+      if (annualReturnRate === 0) {
+        value = monthlyContribution * months;
+      } else {
+        const monthlyRate = annualReturnRate / 12;
+        value = monthlyContribution * ((Math.pow(1 + monthlyRate, months) - 1) / monthlyRate);
+      }
+      out.push({ year: y, value: round2(value) });
+    }
+    return out;
+  }
+
   private bucket(bankNet: number, ratio: number): number {
     if (!Number.isFinite(bankNet) || bankNet < 0) {
       throw new Error('bankNet must be a non-negative number');

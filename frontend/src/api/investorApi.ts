@@ -2,6 +2,8 @@ import type {
   CalculationPreview,
   FinancialProfile,
   HealthStatus,
+  MonthlyContributionProjectionRequest,
+  MonthlyContributionProjectionResponse,
 } from '../types/api';
 
 /**
@@ -83,4 +85,10 @@ export const investorApi = {
 
   deleteProfile: (id: string) =>
     http<{ id: string; deleted: true }>(`/api/profiles/${id}`, { method: 'DELETE' }),
+
+  monthlyContributionProjection: (input: MonthlyContributionProjectionRequest) =>
+    http<MonthlyContributionProjectionResponse>('/api/calculations/monthly-contribution-projection', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }),
 };

@@ -40,6 +40,14 @@ function setupMocks() {
     ({ grossSalary, bankNet, fixedCostsPercent = 55, guiltFreeSpendingPercent = 27.5 }: PreviewInput) =>
       Promise.resolve(makePreview(bankNet, grossSalary, fixedCostsPercent, guiltFreeSpendingPercent)),
   );
+  vi.spyOn(investorApi, 'monthlyContributionProjection').mockImplementation(({ monthlyContribution, annualReturnRate = 0.07, years = 15 }) =>
+    Promise.resolve({
+      monthlyContribution,
+      annualReturnRate,
+      years,
+      projection: Array.from({ length: years }, (_, i) => ({ year: i + 1, value: (i + 1) * 1000 })),
+    }),
+  );
 }
 
 describe('Salary form ↔ bucket cards', () => {
@@ -77,6 +85,110 @@ describe('Salary form ↔ bucket cards', () => {
     await waitFor(() =>
       expect(screen.getByTestId('bucket-fixed-amount')).toHaveTextContent('$7,480.00'),
     );
+  });
+});
+
+describe('Investment Projection section', () => {
+  beforeEach(setupMocks);
+
+  it('renders the Investment Projection section', () => {
+    render(<DashboardPage />);
+    expect(screen.getByTestId('investment-projection')).toBeInTheDocument();
+    expect(screen.getByText('Investment Projection')).toBeInTheDocument();
+  });
+
+  it('shows "Assignment Default" badge at default settings (7%, 15 years)', () => {
+    render(<DashboardPage />);
+    expect(screen.getByTestId('projection-mode-badge')).toHaveTextContent('Assignment Default');
+  });
+
+  it('defaults the annual return display to 7.0%', () => {
+    render(<DashboardPage />);
+    expect(screen.getByTestId('return-rate-display')).toHaveTextContent('7.0%');
+  });
+
+  it('defaults the time horizon display to 15 years', () => {
+    render(<DashboardPage />);
+    expect(screen.getByTestId('years-display')).toHaveTextContent('15 years');
+  });
+
+  it('changes badge to "Scenario Mode" when annual return slider is moved', async () => {
+    const { fireEvent } = await import('@testing-library/react');
+    render(<DashboardPage />);
+
+    // Scope to the investment-projection section to avoid matching the
+    // MonthlyContributionProjection's "Monthly contribution annual return rate" slider
+    const projectionSection = screen.getByTestId('investment-projection');
+    const returnSlider = projectionSection.querySelector('input[aria-label="Annual return rate"]') as HTMLInputElement;
+    expect(returnSlider).not.toBeNull();
+
+    fireEvent.change(returnSlider, { target: { value: '0.05' } });
+
+    await waitFor(() =>
+      expect(screen.getByTestId('projection-mode-badge')).toHaveTextContent('Scenario Mode'),
+    );
+  });
+
+  it('shows "Reset to assignment default" button in Scenario Mode and hides it in default mode', async () => {
+    const { fireEvent } = await import('@testing-library/react');
+    render(<DashboardPage />);
+
+    // In default mode the reset button should NOT be visible
+    expect(screen.queryByTestId('reset-to-default')).not.toBeInTheDocument();
+
+    // Scope to the investment-projection section to avoid matching the monthly slider
+    const projectionSection = screen.getByTestId('investment-projection');
+    const returnSlider = projectionSection.querySelector('input[aria-label="Annual return rate"]') as HTMLInputElement;
+    fireEvent.change(returnSlider, { target: { value: '0.10' } });
+
+    await waitFor(() =>
+      expect(screen.getByTestId('reset-to-default')).toBeInTheDocument(),
+    );
+
+    // Clicking reset should go back to assignment default
+    await userEvent.click(screen.getByTestId('reset-to-default'));
+
+    await waitFor(() =>
+      expect(screen.getByTestId('projection-mode-badge')).toHaveTextContent('Assignment Default'),
+    );
+  });
+});
+
+describe('Monthly Contribution Projection section', () => {
+  beforeEach(setupMocks);
+
+  it('entering bank net 680 shows Active Investments = $68.00', async () => {
+    const user = userEvent.setup();
+    render(<DashboardPage />);
+
+    const netInput = screen.getByLabelText(/Bank net/i);
+    await user.clear(netInput);
+    await user.type(netInput, '680');
+
+    await waitFor(() => {
+      expect(screen.getByTestId('bucket-investments-amount')).toHaveTextContent('$68.00');
+    });
+  });
+
+  it('Monthly Contribution Projection section appears in the page', async () => {
+    render(<DashboardPage />);
+    expect(screen.getByTestId('monthly-contribution-projection')).toBeInTheDocument();
+    expect(screen.getByText('Monthly Contribution Projection')).toBeInTheDocument();
+    expect(screen.getByText('Extra Credit')).toBeInTheDocument();
+  });
+
+  it('Monthly Contribution Projection has Annual return and Time horizon sliders', () => {
+    render(<DashboardPage />);
+    expect(
+      screen.getByLabelText(/Monthly contribution annual return rate/i),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText(/Monthly contribution years/i)).toBeInTheDocument();
+  });
+
+  it('Investment Projection and Monthly Contribution Projection are separate sections', () => {
+    render(<DashboardPage />);
+    expect(screen.getByTestId('investment-projection')).toBeInTheDocument();
+    expect(screen.getByTestId('monthly-contribution-projection')).toBeInTheDocument();
   });
 });
 
