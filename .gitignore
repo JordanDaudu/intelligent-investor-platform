@@ -98,3 +98,10 @@ attached_assets/
 *.pid
 *.seed
 *.pid.lock
+
+# =========================================
+# Local database backups
+# =========================================
+backups/
+*.sql
+*.dump
