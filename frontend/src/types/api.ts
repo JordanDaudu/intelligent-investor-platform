@@ -49,3 +49,16 @@ export interface HealthStatus {
   status: 'ok' | 'error';
   database: 'connected' | 'disconnected';
 }
+
+export interface MonthlyContributionProjectionRequest {
+  monthlyContribution: number;
+  annualReturnRate?: number;
+  years?: number;
+}
+
+export interface MonthlyContributionProjectionResponse {
+  monthlyContribution: number;
+  annualReturnRate: number;
+  years: number;
+  projection: ProjectionPoint[];
+}
