@@ -1,0 +1,47 @@
+# Runs the Intelligent Investor stack from published Docker Hub images.
+# Useful for demos, grading, and running the project without building from source.
+# The default database credentials are for local/demo use only.
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: investor_user
+      POSTGRES_PASSWORD: investor_password
+      POSTGRES_DB: investor_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - intelligent_investor_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U investor_user -d investor_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+
+  backend:
+    image: jordandaudu/intelligent-investor-backend:v1.0.0
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      BACKEND_PORT: 8000
+      BACKEND_HOST: 0.0.0.0
+      DATABASE_URL: postgresql://investor_user:investor_password@postgres:5432/investor_db
+    ports:
+      - "8000:8000"
+
+  frontend:
+    image: jordandaudu/intelligent-investor-frontend:v1.0.0
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_started
+    ports:
+      - "5173:80"
+
+volumes:
+  intelligent_investor_postgres_data:
+    name: intelligent_investor_postgres_data
