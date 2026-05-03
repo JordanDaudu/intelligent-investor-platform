@@ -85,13 +85,19 @@ export default function DashboardPage() {
     };
   }, [values.grossSalary, values.bankNet, fixedCostsPercent, guiltFreeSpendingPercent]);
 
-  const refreshProfiles = useCallback(async () => {
+  const refreshProfiles = useCallback(async (attempt = 0) => {
     setProfilesLoading(true);
     setProfilesError(null);
     try {
       const data = await investorApi.listProfiles();
       setProfiles(data);
     } catch (e) {
+      const maxRetries = 4;
+      if (attempt < maxRetries) {
+        const delay = 1000 * 2 ** attempt;
+        setTimeout(() => void refreshProfiles(attempt + 1), delay);
+        return;
+      }
       setProfilesError(e instanceof Error ? e.message : 'Failed to load profiles');
     } finally {
       setProfilesLoading(false);
