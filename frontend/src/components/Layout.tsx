@@ -12,7 +12,7 @@ export default function Layout({ theme, onToggleTheme, children }: PropsWithChil
       <header className="app-header">
         <div className="app-header__inner">
           <div className="app-brand">
-            <div className="app-brand__mark" aria-hidden>II</div>
+            <img src="/logo.png" alt="Intelligent Investor logo" className="app-brand__mark" />
             <div>
               <div className="app-brand__title">Intelligent Investor</div>
               <div className="app-brand__subtitle">
