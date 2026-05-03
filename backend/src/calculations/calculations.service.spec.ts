@@ -1,4 +1,4 @@
-import { CalculationsService, REQUIRED_PROJECTION_YEARS } from './calculations.service';
+import { CalculationsService, REQUIRED_ANNUAL_RETURN, REQUIRED_PROJECTION_YEARS } from './calculations.service';
 
 describe('CalculationsService', () => {
   let svc: CalculationsService;
@@ -110,6 +110,49 @@ describe('CalculationsService', () => {
     it('rejects negative inputs', () => {
       expect(() => svc.calculateFullPlan(-1, 100)).toThrow();
       expect(() => svc.calculateFullPlan(100, -1)).toThrow();
+    });
+  });
+
+  describe('calculateMonthlyContributionProjection', () => {
+    it('produces 15 yearly points by default at 7% for contribution 68', () => {
+      const projection = svc.calculateMonthlyContributionProjection(68);
+      expect(projection).toHaveLength(REQUIRED_PROJECTION_YEARS);
+      expect(projection[0].year).toBe(1);
+      expect(projection[14].year).toBe(15);
+    });
+
+    it('final year for 68/month @ 7% over 15 years ≈ 21553.44', () => {
+      const projection = svc.calculateMonthlyContributionProjection(68, REQUIRED_ANNUAL_RETURN, 15);
+      const finalValue = projection[14].value;
+      // Much larger than the single-amount required projection (≈ 188)
+      expect(finalValue).toBeCloseTo(21553.44, 0);
+      expect(finalValue).toBeGreaterThan(10000);
+    });
+
+    it('at 0% rate returns monthlyContribution × months (no compounding)', () => {
+      const projection = svc.calculateMonthlyContributionProjection(68, 0, 15);
+      // Year 1: 68 × 12 = 816
+      expect(projection[0].value).toBe(816);
+      // Year 15: 68 × 180 = 12240
+      expect(projection[14].value).toBe(12240);
+    });
+
+    it('rejects invalid inputs', () => {
+      expect(() => svc.calculateMonthlyContributionProjection(-1)).toThrow();
+      expect(() => svc.calculateMonthlyContributionProjection(Number.NaN)).toThrow();
+      expect(() => svc.calculateMonthlyContributionProjection(68, -0.01)).toThrow();
+      expect(() => svc.calculateMonthlyContributionProjection(68, Number.NaN)).toThrow();
+      expect(() => svc.calculateMonthlyContributionProjection(68, 0.07, 0)).toThrow();
+      expect(() => svc.calculateMonthlyContributionProjection(68, 0.07, 1.5)).toThrow();
+    });
+
+    it('does not affect calculateWealthProjection (required projection unchanged)', () => {
+      // Required projection for 68 @ 7% over 15 years ≈ 187.61
+      const requiredProjection = svc.calculateWealthProjection(68);
+      expect(requiredProjection[14].value).toBeCloseTo(187.61, 0);
+      // Confirm it is much smaller than the monthly contribution projection
+      const monthlyProjection = svc.calculateMonthlyContributionProjection(68);
+      expect(monthlyProjection[14].value).toBeGreaterThan(requiredProjection[14].value * 50);
     });
   });
 
