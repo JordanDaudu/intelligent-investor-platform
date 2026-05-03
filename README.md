@@ -568,6 +568,200 @@ docker buildx build \
 
 ---
 
+## Database Backup and Restore
+
+The project uses PostgreSQL inside Docker with a named Docker volume:
+
+```text
+intelligent_investor_postgres_data
+```
+
+This gives the application local database persistence across container restarts, but it is not the same as a backup.
+
+Persistence means the data survives when containers are stopped and started again.
+
+Backup means the data is exported to a file that can be copied, stored safely, or restored later.
+
+---
+
+## Create a Database Backup
+
+Make sure the Docker stack is running first.
+
+If you are running from published Docker Hub images:
+
+```bash
+docker compose -f docker-compose.images.yml up -d
+```
+
+If you are running from source code:
+
+```bash
+docker compose up -d
+```
+
+Then run:
+
+```bash
+./scripts/backup-db.sh
+```
+
+The script creates a timestamped SQL backup file inside the `backups/` directory.
+
+Example output:
+
+```text
+backups/intelligent-investor-investor_db-2026-05-03_18-30-00.sql
+```
+
+The backup is created using `pg_dump` from inside the PostgreSQL Docker container.
+
+---
+
+## Restore a Database Backup
+
+Make sure the Docker stack is running first.
+
+If you are running from published Docker Hub images:
+
+```bash
+docker compose -f docker-compose.images.yml up -d
+```
+
+If you are running from source code:
+
+```bash
+docker compose up -d
+```
+
+Then restore a backup file:
+
+```bash
+./scripts/restore-db.sh backups/intelligent-investor-investor_db-YYYY-MM-DD_HH-MM-SS.sql
+```
+
+The restore script asks for confirmation before applying the backup.
+
+To continue, type:
+
+```text
+RESTORE
+```
+
+This safety step prevents accidentally overwriting local database data.
+
+---
+
+## Using a Different Compose File
+
+By default, the backup and restore scripts use:
+
+```text
+docker-compose.images.yml
+```
+
+If that file does not exist, they fall back to:
+
+```text
+docker-compose.yml
+```
+
+You can also explicitly choose which Compose file to use.
+
+Backup using the source-based Compose file:
+
+```bash
+COMPOSE_FILE=docker-compose.yml ./scripts/backup-db.sh
+```
+
+Restore using the source-based Compose file:
+
+```bash
+COMPOSE_FILE=docker-compose.yml ./scripts/restore-db.sh backups/your-backup-file.sql
+```
+
+Backup using the image-based Compose file:
+
+```bash
+COMPOSE_FILE=docker-compose.images.yml ./scripts/backup-db.sh
+```
+
+Restore using the image-based Compose file:
+
+```bash
+COMPOSE_FILE=docker-compose.images.yml ./scripts/restore-db.sh backups/your-backup-file.sql
+```
+
+---
+
+## Backup Script Configuration
+
+The scripts support environment variable overrides.
+
+Default values:
+
+```text
+COMPOSE_FILE=docker-compose.images.yml
+DB_SERVICE=postgres
+POSTGRES_USER=investor_user
+POSTGRES_DB=investor_db
+BACKUP_DIR=backups
+```
+
+Example: save backups to a different folder:
+
+```bash
+BACKUP_DIR=database-backups ./scripts/backup-db.sh
+```
+
+Example: use a different Docker Compose service name:
+
+```bash
+DB_SERVICE=postgres ./scripts/backup-db.sh
+```
+
+---
+
+## Important Notes
+
+- The `backups/` directory is ignored by Git.
+- Backup files may contain real user/profile data.
+- Do not commit backup files to GitHub.
+- `docker compose down` stops the containers but keeps the database volume.
+- `docker compose down -v` deletes the database volume and all local database data.
+- These scripts back up the local Docker PostgreSQL database only.
+- Each computer has its own Docker volume and therefore its own local database unless configured to use a shared remote database.
+
+---
+
+## Local Database vs Shared Database
+
+The Docker images are universal and can run on any machine, but the local PostgreSQL database is not automatically shared between machines.
+
+For example:
+
+```text
+MacBook Docker volume  !=  Windows PC Docker volume
+```
+
+If you run the project on two different computers, each one creates its own local PostgreSQL volume:
+
+```text
+intelligent_investor_postgres_data
+```
+
+The volume name may be the same, but the data is stored separately on each machine.
+
+To move data manually between machines:
+
+1. Create a backup on the first machine.
+2. Copy the `.sql` backup file to the second machine.
+3. Restore the backup on the second machine.
+
+For real shared data across multiple computers, use a centralized PostgreSQL database such as Neon, Supabase, Railway, Render PostgreSQL, or another managed PostgreSQL provider.
+
+---
+
 ## CI/CD
 
 Pipeline file: `.github/workflows/ci.yml`. Stages:
