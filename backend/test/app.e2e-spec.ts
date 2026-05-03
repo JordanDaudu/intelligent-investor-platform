@@ -108,6 +108,48 @@ describe('Intelligent Investor API (e2e)', () => {
     });
   });
 
+  describe('POST /api/calculations/monthly-contribution-projection', () => {
+    it('returns 15 projection points for a valid request', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/api/calculations/monthly-contribution-projection')
+        .send({ monthlyContribution: 68, annualReturnRate: 0.07, years: 15 })
+        .expect(200);
+
+      expect(res.body.monthlyContribution).toBe(68);
+      expect(res.body.annualReturnRate).toBe(0.07);
+      expect(res.body.years).toBe(15);
+      expect(res.body.projection).toHaveLength(15);
+      expect(res.body.projection[14].year).toBe(15);
+      // Final value should be ≈ 21553
+      expect(res.body.projection[14].value).toBeCloseTo(21553.44, 0);
+    });
+
+    it('uses defaults (7% / 15 years) when optional fields are omitted', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/api/calculations/monthly-contribution-projection')
+        .send({ monthlyContribution: 68 })
+        .expect(200);
+
+      expect(res.body.projection).toHaveLength(15);
+      expect(res.body.annualReturnRate).toBe(0.07);
+      expect(res.body.years).toBe(15);
+    });
+
+    it('rejects negative monthlyContribution with 400', async () => {
+      await request(app.getHttpServer())
+        .post('/api/calculations/monthly-contribution-projection')
+        .send({ monthlyContribution: -1 })
+        .expect(400);
+    });
+
+    it('rejects missing monthlyContribution with 400', async () => {
+      await request(app.getHttpServer())
+        .post('/api/calculations/monthly-contribution-projection')
+        .send({})
+        .expect(400);
+    });
+  });
+
   describe('Profiles CRUD', () => {
     let createdId: string;
 

@@ -21,12 +21,48 @@ describe('Intelligent Investor — happy path', () => {
     cy.get('[data-testid="bucket-savings-amount"]').should('contain', '$1,360.00');
     cy.get('[data-testid="bucket-investments-amount"]').should('contain', '$1,360.00');
     cy.get('[data-testid="bucket-guilt-amount"]').should('contain', '$3,740.00');
-    cy.get('[data-testid="projection-chart"]').should('exist');
 
     cy.contains('button', 'Save profile').click();
     cy.get('[data-testid="profile-list"]').should('contain', uniqueName);
 
     cy.reload();
     cy.get('[data-testid="profile-list"]').should('contain', uniqueName);
+  });
+
+  it('shows the Investment Projection section with Assignment Default badge', () => {
+    cy.visit('/');
+
+    cy.get('[data-testid="investment-projection"]').should('exist');
+    cy.contains('h2', 'Investment Projection').should('exist');
+    cy.get('[data-testid="projection-mode-badge"]').should('contain', 'Assignment Default');
+  });
+
+  it('switches to Scenario Mode when a slider is moved', () => {
+    cy.visit('/');
+
+    cy.get('[data-testid="investment-projection"]')
+      .find('input[type="range"]')
+      .first()
+      .invoke('val', '0.10')
+      .trigger('change');
+
+    cy.get('[data-testid="projection-mode-badge"]').should('contain', 'Scenario Mode');
+    cy.get('[data-testid="reset-to-default"]').should('exist');
+  });
+
+  it('shows Monthly Contribution Projection extra-credit card', () => {
+    cy.visit('/');
+
+    cy.contains('h2', 'Monthly Contribution Projection').should('exist');
+    cy.get('[data-testid="monthly-contribution-projection"]').should('exist');
+    cy.contains('.badge', 'Extra Credit').should('exist');
+  });
+
+  it('Monthly Contribution Projection has Annual return and Time horizon sliders', () => {
+    cy.visit('/');
+
+    cy.get('[data-testid="monthly-contribution-projection"]')
+      .find('input[type="range"]')
+      .should('have.length', 2);
   });
 });

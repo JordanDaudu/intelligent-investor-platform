@@ -14,7 +14,7 @@ The project is intentionally heavy on DevOps practices — Docker, Git Flow, CI/
 - Save profiles to PostgreSQL via the API; reload them across browser sessions.
 - DevOps health-status card calling `GET /health` (backend + database) plus the build-time environment label.
 - Dark/light mode toggle, persisted in `localStorage`.
-- Optional **Scenario Lab** — sliders for return rate / horizon / monthly investment override.
+- Optional **Scenario Lab** — sliders for return rate / horizon / investment amount override (same single-amount formula as the required chart).
 - Cypress E2E + Vitest component tests + Jest unit and integration tests.
 
 ---
@@ -103,18 +103,44 @@ value(n) = activeInvestments × (1 + 0.07)^n
 
 The Scenario Lab can vary the rate and horizon, but **does not replace** the required default chart.
 
+### Investment Projection (required + optional scenario)
+
+Uses the single-amount compound formula for years 1 through the selected horizon:
+
+```
+value(n) = investmentAmount × (1 + annualReturn)^n
+```
+
+Default settings match the **required assignment projection**:
+- `annualReturn = 7%`
+- `years = 15`
+- `investmentAmount = Active Investments bucket`
+
+When at default settings the chart shows an **"Assignment Default"** badge. Moving the sliders enters optional **"Scenario Mode"**, and a "Reset to assignment default" button restores the defaults. The chart calculation runs locally in the browser (same formula as the backend).
+
+### Extra-credit monthly contribution projection
+
+Uses the future value of recurring monthly contributions (annuity formula):
+
+```
+FV(y) = monthlyContribution × ((1 + r/12)^(y×12) − 1) / (r/12)
+```
+
+This assumes the Active Investments amount is contributed **every month**. With $68/month at 7% over 15 years, the projected value is approximately **$21,553** — far larger than the required single-amount projection (~$188). The backend endpoint `POST /api/calculations/monthly-contribution-projection` powers this chart; sliders for annual return and time horizon pass their values directly to the API.
+
 ---
 
 ## API endpoints
 
-| Method | Path                          | Purpose                                       |
-|--------|-------------------------------|-----------------------------------------------|
-| GET    | `/health`                     | 200 only when backend + DB are reachable      |
-| POST   | `/api/calculations/preview`   | Stateless buckets + 15-year projection        |
-| POST   | `/api/profiles`               | Save profile + computed plan                  |
-| GET    | `/api/profiles`               | List all saved profiles                       |
-| GET    | `/api/profiles/:id`           | Get one saved profile                         |
-| DELETE | `/api/profiles/:id`           | Delete a profile (cascades into spending plan) |
+| Method | Path                                                | Purpose                                             |
+|--------|-----------------------------------------------------|-----------------------------------------------------|
+| GET    | `/health`                                           | 200 only when backend + DB are reachable            |
+| POST   | `/api/calculations/preview`                         | Stateless buckets + 15-year projection              |
+| POST   | `/api/calculations/monthly-contribution-projection` | Extra-credit: future value of monthly contributions |
+| POST   | `/api/profiles`                                     | Save profile + computed plan                        |
+| GET    | `/api/profiles`                                     | List all saved profiles                             |
+| GET    | `/api/profiles/:id`                                 | Get one saved profile                               |
+| DELETE | `/api/profiles/:id`                                 | Delete a profile (cascades into spending plan)      |
 
 `POST /api/calculations/preview` example:
 
