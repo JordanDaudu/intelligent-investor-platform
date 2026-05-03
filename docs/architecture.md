@@ -41,26 +41,29 @@ AppModule
 
 ```
 <App>
- ├─ <Layout>            (sticky header + brand + ThemeToggle)
+ ├─ <Layout>                      (sticky header + brand + ThemeToggle)
  │   ├─ <ThemeToggle>
  │   └─ children
  └─ <DashboardPage>
      ├─ Hero text
-     ├─ <SalaryForm>           (controlled inputs + Estimate button)
-     ├─ <HealthStatusCard>     (polls /health every 15s)
-     ├─ <BucketBreakdown>      (4 × <BucketCard>)
-     ├─ <ProjectionChart>      (required 15y / 7% — Recharts)
-     ├─ <ScenarioLab>          (optional — local sliders)
-     └─ <SavedProfiles>        (load / delete / refresh)
+     ├─ <SalaryForm>              (controlled inputs + Estimate button)
+     ├─ <HealthStatusCard>        (polls /health every 15s)
+     ├─ <BucketBreakdown>         (4 × <BucketCard>)
+     ├─ <AllocationControls>      (optional ratio sliders)
+     ├─ <ProjectionChart>         (required 15y / 7% — Recharts)
+     ├─ <ScenarioLab>             (optional — local single-amount compound sliders)
+     ├─ <MonthlyContributionProjection> (extra-credit — calls backend API)
+     └─ <SavedProfiles>           (load / delete / refresh)
 ```
-
-Buckets and projection update **instantly** as the user types — the frontend computes them locally with the exact same formulas as the backend, so there is zero network latency on each keystroke. The backend is the single source of truth on save: it recomputes the plan and stores it alongside the profile.
 
 ## Data flow
 
 1. User types a bank-net value.
-2. `DashboardPage` recomputes the four bucket amounts and the 15-year projection in-memory.
-3. `BucketBreakdown` and `ProjectionChart` re-render.
-4. User clicks **Save profile** → `POST /api/profiles` → backend persists the profile + plan.
-5. `SavedProfiles` refreshes from `GET /api/profiles`.
-6. On reload, `SavedProfiles` re-fetches and re-displays the saved entry.
+2. `DashboardPage` fires a debounced `POST /api/calculations/preview` (250 ms delay).
+3. The backend computes the four bucket amounts and the required 15-year single-amount projection.
+4. `BucketBreakdown` and `ProjectionChart` re-render with the API response.
+5. `MonthlyContributionProjection` fires `POST /api/calculations/monthly-contribution-projection` with the active-investments bucket amount; results are shown in the extra-credit card.
+6. `ScenarioLab` performs its own local in-memory math with the same single-amount compound formula — no extra API call.
+7. User clicks **Save profile** → `POST /api/profiles` → backend persists the profile + plan.
+8. `SavedProfiles` refreshes from `GET /api/profiles`.
+9. On reload, `SavedProfiles` re-fetches and re-displays the saved entry.
