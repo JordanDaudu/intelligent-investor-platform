@@ -190,60 +190,380 @@ CI uses a service container Postgres and reads matching env vars; production use
 
 ---
 
-## Run locally with Docker Compose
+## Universal Docker Run Options
 
-```bash
-cp .env.example .env
-docker compose up --build
-```
+This project can be run on any machine that has Docker installed, including macOS, Windows, and Linux.
 
-Then open:
+The project supports two Docker-based run modes:
 
-- Frontend → <http://localhost:5000> on Replit, or <http://localhost:5173> when running via local `docker compose up`
-- Backend  → <http://localhost:8000/health>
-
-Stop with `docker compose down`. Database state is preserved in the named volume `intelligent_investor_postgres_data` — wipe with `docker volume rm intelligent_investor_postgres_data`.
-
-### First run on Replit
-
-1. Open the project on Replit — both the **Backend** (port 8000) and **Frontend** (port 5000) workflows auto-start.
-2. The platform automatically provisions a managed PostgreSQL database and exposes it as `DATABASE_URL` in the environment. If it isn't there yet, click **+ Database** in the sidebar to create one.
-3. From the shell, run the one-time schema setup:
-   ```bash
-   cd backend && npx prisma migrate deploy
-   ```
-4. The frontend is visible in the preview pane. The Vite dev server proxies `/api` and `/health` to the backend on `127.0.0.1:8000`, so no extra config is needed.
-
-### Run without Docker
-
-```bash
-./scripts/setup-dev.sh           # installs deps + generates Prisma client
-npm --prefix backend run start:dev   # in one shell
-npm --prefix frontend run dev        # in another shell
-```
-
-You'll need a Postgres reachable at `DATABASE_URL` (Replit users get one for free via `createDatabase()`).
+1. **Run from published Docker Hub images** — best for demos, grading, and running on another computer without building the source code.
+2. **Run from source code** — best for development, testing, and making changes locally.
 
 ---
 
-## Run the tests
+## Option 1: Run from Published Docker Hub Images
+
+This option does **not** require cloning or building the full project source code.
+
+It pulls the already-published multi-architecture Docker images from Docker Hub.
+
+The published images support:
+
+```text
+linux/amd64
+linux/arm64
+```
+
+This means they can run on most Windows/Linux PCs and Apple Silicon Macs.
+
+### 1. Create a project folder
+
+macOS/Linux/Git Bash:
 
 ```bash
-# Backend unit tests (CalculationsService etc.)
-npm --prefix backend test
+mkdir intelligent-investor
+cd intelligent-investor
+```
 
-# Backend integration tests (requires DATABASE_URL)
-npm --prefix backend run test:e2e
+Windows PowerShell:
 
-# Frontend component tests (Vitest + RTL)
-npm --prefix frontend test
+```powershell
+mkdir intelligent-investor
+cd intelligent-investor
+```
 
-# Cypress E2E (requires the full stack running)
-npm --prefix frontend run cypress:run
+### 2. Create `docker-compose.yml`
 
-# All-in-one helper
-./scripts/run-tests.sh             # unit + component
-./scripts/run-tests.sh --e2e       # adds backend integration tests
+Create a file named:
+
+```text
+docker-compose.yml
+```
+
+Paste the following content into it:
+
+```yaml
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: investor_user
+      POSTGRES_PASSWORD: investor_password
+      POSTGRES_DB: investor_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - intelligent_investor_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U investor_user -d investor_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+
+  backend:
+    image: jordandaudu/intelligent-investor-backend:v1.0.0
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      BACKEND_PORT: 8000
+      BACKEND_HOST: 0.0.0.0
+      DATABASE_URL: postgresql://investor_user:investor_password@postgres:5432/investor_db
+    ports:
+      - "8000:8000"
+
+  frontend:
+    image: jordandaudu/intelligent-investor-frontend:v1.0.0
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_started
+    ports:
+      - "5173:80"
+
+volumes:
+  intelligent_investor_postgres_data:
+    name: intelligent_investor_postgres_data
+```
+
+### 3. Pull and start the application
+
+macOS/Linux/Git Bash:
+
+```bash
+docker compose pull
+docker compose up -d
+```
+
+Windows PowerShell:
+
+```powershell
+docker compose pull
+docker compose up -d
+```
+
+### 4. Check that the containers are running
+
+```bash
+docker compose ps
+```
+
+Expected services:
+
+```text
+postgres
+backend
+frontend
+```
+
+### 5. Verify backend health
+
+macOS/Linux/Git Bash:
+
+```bash
+curl http://localhost:8000/health
+```
+
+Windows PowerShell:
+
+```powershell
+curl.exe http://localhost:8000/health
+```
+
+Expected response:
+
+```json
+{
+  "status": "ok",
+  "database": "connected"
+}
+```
+
+### 6. Open the app
+
+Open this URL in your browser:
+
+```text
+http://localhost:5173
+```
+
+Useful URLs:
+
+```text
+Frontend: http://localhost:5173
+Backend:  http://localhost:8000
+Health:   http://localhost:8000/health
+Swagger:  http://localhost:8000/api/docs
+```
+
+---
+
+## Option 2: Run from Source Code
+
+This option builds the backend and frontend Docker images locally from the repository source code.
+
+Use this option if you want to inspect the code, modify the project, run tests, or rebuild the application yourself.
+
+### 1. Clone the repository
+
+```bash
+git clone https://github.com/JordanDaudu/intelligent-investor-platform.git
+cd intelligent-investor-platform
+```
+
+### 2. Create the local environment file
+
+macOS/Linux/Git Bash:
+
+```bash
+cp .env.example .env
+```
+
+Windows PowerShell:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+If `.env.example` is not available, create a `.env` file in the project root with:
+
+```env
+POSTGRES_USER=investor_user
+POSTGRES_PASSWORD=investor_password
+POSTGRES_DB=investor_db
+POSTGRES_PORT=5432
+
+DATABASE_URL=postgresql://investor_user:investor_password@postgres:5432/investor_db
+
+NODE_ENV=development
+BACKEND_PORT=8000
+BACKEND_HOST=0.0.0.0
+
+FRONTEND_PORT=5173
+VITE_API_BASE_URL=http://localhost:8000
+```
+
+### 3. Build and start the full stack
+
+```bash
+docker compose up -d --build
+```
+
+This starts:
+
+```text
+PostgreSQL database container
+NestJS backend container
+React frontend container
+```
+
+### 4. Check container status
+
+```bash
+docker compose ps
+```
+
+### 5. Verify backend health
+
+macOS/Linux/Git Bash:
+
+```bash
+curl http://localhost:8000/health
+```
+
+Windows PowerShell:
+
+```powershell
+curl.exe http://localhost:8000/health
+```
+
+Expected response:
+
+```json
+{
+  "status": "ok",
+  "database": "connected"
+}
+```
+
+### 6. Open the app
+
+Open this URL in your browser:
+
+```text
+http://localhost:5173
+```
+
+---
+
+## Stopping the Application
+
+Stop the containers while keeping the database data:
+
+```bash
+docker compose down
+```
+
+Stop the containers and delete the local database volume:
+
+```bash
+docker compose down -v
+```
+
+Use `down -v` only when you want to reset all saved financial profiles and database data.
+
+---
+
+## Database Persistence
+
+The PostgreSQL database runs inside Docker and uses a named Docker volume:
+
+```text
+intelligent_investor_postgres_data
+```
+
+This allows profile data to persist even if the containers are stopped and restarted.
+
+---
+
+## Common Port Issue
+
+If port `5432` is already used on your machine, change the PostgreSQL port mapping.
+
+Change this:
+
+```yaml
+ports:
+  - "5432:5432"
+```
+
+To this:
+
+```yaml
+ports:
+  - "5433:5432"
+```
+
+Do **not** change the backend `DATABASE_URL`.
+
+The backend still connects to PostgreSQL inside Docker using:
+
+```text
+postgres:5432
+```
+
+The changed host port only affects access from your local computer.
+
+---
+
+## Published Docker Images
+
+Backend:
+
+```text
+jordandaudu/intelligent-investor-backend:v1.0.0
+jordandaudu/intelligent-investor-backend:latest
+```
+
+Frontend:
+
+```text
+jordandaudu/intelligent-investor-frontend:v1.0.0
+jordandaudu/intelligent-investor-frontend:latest
+```
+
+Supported architectures:
+
+```text
+linux/amd64
+linux/arm64
+```
+
+---
+
+## Production Deployment Note
+
+The published frontend image currently points to:
+
+```text
+http://localhost:8000
+```
+
+This is correct for local usage on macOS, Windows, or Linux.
+
+For a real public server deployment, rebuild the frontend image with the server's public backend URL:
+
+```bash
+docker buildx build \
+  --platform linux/amd64,linux/arm64 \
+  --build-arg VITE_API_BASE_URL=http://YOUR_SERVER_IP_OR_DOMAIN:8000 \
+  --provenance=false \
+  -t jordandaudu/intelligent-investor-frontend:prod \
+  --push \
+  ./frontend
 ```
 
 ---
