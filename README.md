@@ -1,8 +1,27 @@
+<p align="center">
+  <img src="docs/assets/Intelligent-Investor-Banner.png" alt="Intelligent Investor Platform banner" width="100%" />
+</p>
+
 # Intelligent Investor Platform
 
 A full-stack DevOps final assignment that helps users plan their monthly cash flow with the **Common Sense Spending** strategy and visualize a 15-year compound-growth projection on the active-investments slice.
 
 The project is intentionally heavy on DevOps practices — Docker, Git Flow, CI/CD, automated tests, health checks, environment variables, and documentation — because that's what the assignment is graded on.
+
+> **Banner note:** place the README hero image at `docs/assets/readme-hero.png`.
+
+## Quick links
+
+- [Features](#features)
+- [Tech stack](#tech-stack)
+- [Architecture](#architecture)
+- [Calculation formulas](#calculation-formulas)
+- [API endpoints](#api-endpoints)
+- [Environment variables](#environment-variables)
+- [Run with Docker](#universal-docker-run-options)
+- [Run tests locally](#running-tests-locally)
+- [CI/CD](#cicd)
+- [Git Flow Strategy](#git-flow-strategy)
 
 ---
 
@@ -132,6 +151,8 @@ This assumes the Active Investments amount is contributed **every month**. With 
 
 ## API endpoints
 
+Swagger/OpenAPI documentation is available locally at `http://localhost:8000/api/docs` after the backend is running.
+
 | Method | Path                                                | Purpose                                             |
 |--------|-----------------------------------------------------|-----------------------------------------------------|
 | GET    | `/health`                                           | 200 only when backend + DB are reachable            |
@@ -182,7 +203,7 @@ Copy `.env.example` → `.env` and adjust values as needed.
 | `POSTGRES_PORT`      | `5432`                                                                                | Host port for the Postgres container     |
 | `DATABASE_URL`       | `postgresql://investor_user:investor_password@postgres:5432/investor_db`             | Backend Prisma connection URL            |
 | `BACKEND_PORT`       | `8000`                                                                                | NestJS HTTP port                         |
-| `FRONTEND_PORT`      | `5000` (Replit dev) / `5173` (local Docker)                                           | Host port the SPA is served on           |
+| `FRONTEND_PORT`      | `5173`                                           | Host port the SPA is served on           |
 | `VITE_API_BASE_URL`  | `http://localhost:8000`                                                              | Public API base URL the frontend calls   |
 | `NODE_ENV`           | `development`                                                                         | Backend runtime mode (validation, logs)  |
 
@@ -456,6 +477,36 @@ Open this URL in your browser:
 ```text
 http://localhost:5173
 ```
+
+---
+
+## Running Tests Locally
+
+Run the full local test suite with the helper script:
+
+```bash
+./scripts/run-tests.sh
+```
+
+Or run each layer manually:
+
+```bash
+# Backend unit + integration tests
+cd backend
+npm install
+npm run test
+npm run test:e2e
+
+# Frontend component tests
+cd ../frontend
+npm install
+npm run test
+
+# Cypress end-to-end tests
+npm run cypress:run
+```
+
+The CI pipeline runs these tests automatically on pushes and pull requests.
 
 ---
 
@@ -780,6 +831,23 @@ See `docs/ci-cd.md` for full details.
 ### Staging deployment
 
 On push to `stage`, CI runs `staging-deployment` (a placeholder) and then `staging-health-check`, which polls `${STAGING_API_URL}/health` until it returns 200 (or warns and exits if the URL secret isn't set). Wire `scripts/deploy-staging.sh` to your real hosting provider when ready.
+
+### How to trigger deployment
+
+Deployment is branch-driven through GitHub Actions:
+
+```bash
+# feature work starts from dev
+git checkout dev
+git checkout -b feature/my-change
+
+# after review, merge feature/* into dev
+# after dev is stable, open a PR from dev into stage
+# merging into stage triggers the staging deployment job
+# merging stage into main triggers the production deployment placeholder
+```
+
+Required deployment secrets are documented in `docs/ci-cd.md`.
 
 ---
 
