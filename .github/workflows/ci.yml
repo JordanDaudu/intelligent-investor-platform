@@ -66,10 +66,25 @@ jobs:
       - name: Apply database schema
         run: npx prisma db push --skip-generate
 
-      - name: Backend unit tests
-        run: npm test -- --runInBand
+      - name: Backend unit tests (calculations + profiles, with coverage)
+        # Covers:
+        #   - calculations.service.spec.ts
+        #   - calculations.controller.spec.ts
+        #   - profiles.controller.spec.ts
+        #   - profiles.service.spec.ts
+        # Coverage thresholds are enforced in backend/package.json -> jest.coverageThreshold.
+        run: npm run test:cov -- --runInBand
 
-      - name: Backend integration tests
+      - name: Upload backend coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-coverage
+          path: coverage/
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Backend integration tests (Supertest + Postgres)
         run: npm run test:e2e
 
       - name: Backend build
@@ -99,7 +114,10 @@ jobs:
       - name: Frontend install
         run: npm install --no-audit --no-fund
 
-      - name: Frontend component tests
+      - name: Frontend component + API wrapper tests
+        # Covers:
+        #   - SalaryForm.test.tsx (DashboardPage component flow)
+        #   - investorApi.test.ts  (typed fetch wrapper, error mapping, 204 path)
         run: npm test
 
       - name: Frontend build
