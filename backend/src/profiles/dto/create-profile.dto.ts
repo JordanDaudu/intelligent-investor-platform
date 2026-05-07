@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsNumber, IsOptional, IsString, Length, Max, Min } from 'class-validator';
+import { IsIn, IsNumber, IsOptional, IsString, Length, Max, Min } from 'class-validator';
+import { SUPPORTED_CURRENCIES, type Currency } from '../../currencies/currencies.service';
 
 export class CreateProfileDto {
   @ApiProperty({
@@ -60,4 +61,15 @@ export class CreateProfileDto {
   @Min(20)
   @Max(35)
   guiltFreeSpendingPercent?: number;
+
+  @ApiPropertyOptional({
+    description:
+      'ISO 4217 currency code the profile values are recorded in. Defaults to ILS when omitted.',
+    example: 'ILS',
+    enum: SUPPORTED_CURRENCIES,
+  })
+  @IsOptional()
+  @IsString()
+  @IsIn(SUPPORTED_CURRENCIES as readonly string[])
+  currency?: Currency;
 }

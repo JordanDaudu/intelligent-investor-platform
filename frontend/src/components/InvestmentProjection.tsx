@@ -10,6 +10,7 @@ import {
   YAxis,
 } from 'recharts';
 import type { ProjectionPoint } from '../types/api';
+import { useCurrency } from '../currency/CurrencyContext';
 
 interface InvestmentProjectionProps {
   defaultInvestmentAmount: number;
@@ -17,13 +18,6 @@ interface InvestmentProjectionProps {
 
 const DEFAULT_RETURN = 0.07;
 const DEFAULT_YEARS = 15;
-
-const formatUsd = (n: number): string =>
-  new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    maximumFractionDigits: 0,
-  }).format(n);
 
 function buildProjection(
   investment: number,
@@ -38,6 +32,7 @@ function buildProjection(
 }
 
 export default function InvestmentProjection({ defaultInvestmentAmount }: InvestmentProjectionProps) {
+  const { format: formatUsd } = useCurrency();
   const [returnRate, setReturnRate] = useState(DEFAULT_RETURN);
   const [years, setYears] = useState(DEFAULT_YEARS);
   const [override, setOverride] = useState<number | ''>('');

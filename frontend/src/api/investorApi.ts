@@ -1,5 +1,7 @@
 import type {
   CalculationPreview,
+  CurrenciesResponse,
+  Currency,
   FinancialProfile,
   HealthStatus,
   MonthlyContributionProjectionRequest,
@@ -54,12 +56,16 @@ export interface PreviewInput {
   fixedCostsPercent?: number;
   /** Optional Guilt-Free Spending override (20–35). Defaults to 27.5 on the backend. */
   guiltFreeSpendingPercent?: number;
+  /** Currency the input values are expressed in. Echoed back in the response. Defaults to ILS. */
+  currency?: Currency;
 }
 
 export const investorApi = {
   baseUrl: BASE_URL,
 
   health: () => http<HealthStatus>('/health'),
+
+  currencies: () => http<CurrenciesResponse>('/api/currencies'),
 
   preview: (input: PreviewInput) =>
     http<CalculationPreview>('/api/calculations/preview', {
@@ -77,6 +83,7 @@ export const investorApi = {
     bankNet: number;
     fixedCostsPercent?: number;
     guiltFreeSpendingPercent?: number;
+    currency?: Currency;
   }) =>
     http<FinancialProfile>('/api/profiles', {
       method: 'POST',

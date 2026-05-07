@@ -30,4 +30,11 @@ export class FullPlanDto {
 
   @ApiProperty({ description: 'Guilt-Free Spending ratio actually applied, as a percentage (e.g. 27.5)', example: 27.5 })
   guiltFreeSpendingPercent!: number;
+
+  @ApiProperty({
+    description: 'ISO 4217 currency code the input values were expressed in (echoed from the request).',
+    example: 'ILS',
+    enum: ['ILS', 'USD', 'EUR', 'GBP'],
+  })
+  currency!: string;
 }

@@ -91,6 +91,7 @@ attached_assets/
 .cache/
 .local/
 .agents/
+.claude/
 
 # =========================================
 # Docker / Runtime Local Files

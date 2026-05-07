@@ -1,5 +1,6 @@
 import type { PropsWithChildren } from 'react';
 import ThemeToggle from './ThemeToggle';
+import CurrencySelector from './CurrencySelector';
 
 interface LayoutProps {
   theme: 'light' | 'dark';
@@ -20,7 +21,10 @@ export default function Layout({ theme, onToggleTheme, children }: PropsWithChil
               </div>
             </div>
           </div>
-          <ThemeToggle theme={theme} onToggle={onToggleTheme} />
+          <div className="app-header__controls">
+            <CurrencySelector />
+            <ThemeToggle theme={theme} onToggle={onToggleTheme} />
+          </div>
         </div>
       </header>
 

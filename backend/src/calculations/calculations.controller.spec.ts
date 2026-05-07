@@ -39,6 +39,7 @@ describe('CalculationsController', () => {
       expect(service.calculateFullPlan).toHaveBeenCalledWith(20000, 13600, {
         fixedCostsPercent: 50,
         guiltFreeSpendingPercent: 25,
+        currency: undefined,
       });
       expect(result).toBe(fakePlan);
     });
@@ -50,6 +51,22 @@ describe('CalculationsController', () => {
       expect(service.calculateFullPlan).toHaveBeenCalledWith(100, 68, {
         fixedCostsPercent: undefined,
         guiltFreeSpendingPercent: undefined,
+        currency: undefined,
+      });
+    });
+
+    it('forwards an explicit currency to the service overrides', () => {
+      service.calculateFullPlan.mockReturnValue({});
+      controller.preview({
+        grossSalary: 100,
+        bankNet: 68,
+        currency: 'EUR',
+      } as never);
+
+      expect(service.calculateFullPlan).toHaveBeenCalledWith(100, 68, {
+        fixedCostsPercent: undefined,
+        guiltFreeSpendingPercent: undefined,
+        currency: 'EUR',
       });
     });
   });
@@ -73,6 +90,7 @@ describe('CalculationsController', () => {
         annualReturnRate: REQUIRED_ANNUAL_RETURN,
         years: REQUIRED_PROJECTION_YEARS,
         projection,
+        currency: 'ILS',
       });
     });
 
@@ -101,6 +119,21 @@ describe('CalculationsController', () => {
       // 0 must be honored, not coerced to the default 0.07.
       expect(result.annualReturnRate).toBe(0);
       expect(result.years).toBe(1);
+    });
+
+    it('echoes an explicit currency back in the response, defaults to ILS otherwise', () => {
+      service.calculateMonthlyContributionProjection.mockReturnValue([]);
+
+      const withCurrency = controller.monthlyContributionProjection({
+        monthlyContribution: 50,
+        currency: 'GBP',
+      } as never);
+      expect(withCurrency.currency).toBe('GBP');
+
+      const withoutCurrency = controller.monthlyContributionProjection({
+        monthlyContribution: 50,
+      } as never);
+      expect(withoutCurrency.currency).toBe('ILS');
     });
   });
 });

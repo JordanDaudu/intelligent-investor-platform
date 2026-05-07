@@ -66,12 +66,14 @@ jobs:
       - name: Apply database schema
         run: npx prisma db push --skip-generate
 
-      - name: Backend unit tests (calculations + profiles, with coverage)
+      - name: Backend unit tests (calculations + profiles + currencies, with coverage)
         # Covers:
         #   - calculations.service.spec.ts
         #   - calculations.controller.spec.ts
         #   - profiles.controller.spec.ts
         #   - profiles.service.spec.ts
+        #   - currencies.service.spec.ts
+        #   - currencies.controller.spec.ts
         # Coverage thresholds are enforced in backend/package.json -> jest.coverageThreshold.
         run: npm run test:cov -- --runInBand
 
@@ -114,10 +116,12 @@ jobs:
       - name: Frontend install
         run: npm install --no-audit --no-fund
 
-      - name: Frontend component + API wrapper tests
+      - name: Frontend component + API wrapper + currency tests
         # Covers:
-        #   - SalaryForm.test.tsx (DashboardPage component flow)
-        #   - investorApi.test.ts  (typed fetch wrapper, error mapping, 204 path)
+        #   - SalaryForm.test.tsx       (DashboardPage component flow + currency switch UX)
+        #   - investorApi.test.ts       (typed fetch wrapper, error mapping, 204 path, currencies endpoint)
+        #   - CurrencyContext.test.tsx  (provider, format, convert, fallback rates)
+        #   - CurrencySelector.test.tsx (dropdown rendering, default, onAfterChange callback)
         run: npm test
 
       - name: Frontend build

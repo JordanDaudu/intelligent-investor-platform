@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import Layout from './components/Layout';
 import DashboardPage from './pages/DashboardPage';
+import { CurrencyProvider } from './currency/CurrencyContext';
 
 type Theme = 'light' | 'dark';
 const THEME_KEY = 'iip:theme';
@@ -26,8 +27,10 @@ export default function App() {
   }, [theme]);
 
   return (
-    <Layout theme={theme} onToggleTheme={() => setTheme((t) => (t === 'light' ? 'dark' : 'light'))}>
-      <DashboardPage />
-    </Layout>
+    <CurrencyProvider>
+      <Layout theme={theme} onToggleTheme={() => setTheme((t) => (t === 'light' ? 'dark' : 'light'))}>
+        <DashboardPage />
+      </Layout>
+    </CurrencyProvider>
   );
 }
