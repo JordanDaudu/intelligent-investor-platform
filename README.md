@@ -8,7 +8,9 @@ A full-stack DevOps final assignment that helps users plan their monthly cash fl
 
 The project is intentionally heavy on DevOps practices — Docker, Git Flow, CI/CD, automated tests, health checks, environment variables, and documentation — because that's what the assignment is graded on.
 
-> **Banner note:** place the README hero image at `docs/assets/readme-hero.png`.
+<p align="center">
+  <img src="docs/assets/Intelligent-Investor-Local-Docker-Architecture.png" alt="Intelligent Investor Platform banner" width="100%" />
+</p>
 
 ## Quick links
 
