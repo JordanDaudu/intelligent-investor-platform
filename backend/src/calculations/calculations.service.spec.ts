@@ -107,6 +107,18 @@ describe('CalculationsService', () => {
       expect(plan.guiltFreeSpendingPercent).toBe(27.5);
     });
 
+    it('defaults currency to ILS when no override is provided', () => {
+      const plan = svc.calculateFullPlan(20000, 13600);
+      expect(plan.currency).toBe('ILS');
+    });
+
+    it('echoes an explicit currency override back in the response', () => {
+      const plan = svc.calculateFullPlan(20000, 13600, { currency: 'EUR' });
+      expect(plan.currency).toBe('EUR');
+      // Buckets are still computed from the input bankNet — currency does not affect math.
+      expect(plan.buckets.fixedCosts).toBe(7480);
+    });
+
     it('rejects negative inputs', () => {
       expect(() => svc.calculateFullPlan(-1, 100)).toThrow();
       expect(() => svc.calculateFullPlan(100, -1)).toThrow();

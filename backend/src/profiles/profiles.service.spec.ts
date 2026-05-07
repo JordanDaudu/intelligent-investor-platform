@@ -33,6 +33,7 @@ function makeRow(overrides: Record<string, unknown> = {}) {
     bankNet: new Prisma.Decimal(13600),
     fixedCostsPercent: null,
     guiltFreeSpendingPercent: null,
+    currency: 'ILS',
     createdAt,
     updatedAt,
     spendingPlan: {
@@ -103,6 +104,42 @@ describe('ProfilesService', () => {
       const args = prisma.financialProfile.create.mock.calls[0][0];
       expect(args.data.fixedCostsPercent).toBeNull();
       expect(args.data.guiltFreeSpendingPercent).toBeNull();
+    });
+
+    it('defaults currency to ILS when omitted on create', async () => {
+      prisma.financialProfile.create.mockResolvedValue(makeRow());
+
+      await service.create({ name: 'Bob', grossSalary: 100, bankNet: 68 });
+
+      const args = prisma.financialProfile.create.mock.calls[0][0];
+      expect(args.data.currency).toBe('ILS');
+    });
+
+    it('persists an explicit currency override', async () => {
+      prisma.financialProfile.create.mockResolvedValue(makeRow({ currency: 'EUR' }));
+
+      await service.create({
+        name: 'Pierre',
+        grossSalary: 100,
+        bankNet: 68,
+        currency: 'EUR',
+      });
+
+      const args = prisma.financialProfile.create.mock.calls[0][0];
+      expect(args.data.currency).toBe('EUR');
+    });
+
+    it('surfaces the persisted currency in the response', async () => {
+      prisma.financialProfile.create.mockResolvedValue(makeRow({ currency: 'GBP' }));
+
+      const result = await service.create({
+        name: 'Nigel',
+        grossSalary: 100,
+        bankNet: 68,
+        currency: 'GBP',
+      });
+
+      expect(result.currency).toBe('GBP');
     });
   });
 

@@ -1,4 +1,8 @@
 import { Injectable } from '@nestjs/common';
+import {
+  DEFAULT_CURRENCY,
+  type Currency,
+} from '../currencies/currencies.service';
 
 /**
  * Common Sense Spending bucket ratios.
@@ -41,6 +45,8 @@ export interface FullPlan {
   fixedCostsPercent: number;
   /** Actual guilt-free spending ratio used, expressed as a percentage (e.g. 27.5 = 27.5%). */
   guiltFreeSpendingPercent: number;
+  /** ISO 4217 currency code the input values were expressed in. Echoed for round-trip confirmation. */
+  currency: Currency;
 }
 
 export interface FullPlanOverrides {
@@ -48,6 +54,8 @@ export interface FullPlanOverrides {
   fixedCostsPercent?: number;
   /** Override for Guilt-Free Spending, as a percentage (20–35). */
   guiltFreeSpendingPercent?: number;
+  /** Currency the input values are expressed in. Echoed back; no math impact. */
+  currency?: Currency;
 }
 
 const round2 = (n: number): number => Math.round(n * 100) / 100;
@@ -159,6 +167,7 @@ export class CalculationsService {
       projectionYears: REQUIRED_PROJECTION_YEARS,
       fixedCostsPercent: round2(fixedRatio * 100),
       guiltFreeSpendingPercent: round2(guiltRatio * 100),
+      currency: overrides?.currency ?? DEFAULT_CURRENCY,
     };
   }
 

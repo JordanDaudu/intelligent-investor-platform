@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsNumber, IsOptional, Max, Min } from 'class-validator';
+import { IsIn, IsNumber, IsOptional, IsString, Max, Min } from 'class-validator';
+import { SUPPORTED_CURRENCIES, type Currency } from '../../currencies/currencies.service';
 
 export class CalculationPreviewDto {
   @ApiProperty({
@@ -50,4 +51,15 @@ export class CalculationPreviewDto {
   @Min(20)
   @Max(35)
   guiltFreeSpendingPercent?: number;
+
+  @ApiPropertyOptional({
+    description:
+      'ISO 4217 currency code the input values are expressed in. Echoed back in the response so the frontend can confirm round-trip. Defaults to ILS.',
+    example: 'ILS',
+    enum: SUPPORTED_CURRENCIES,
+  })
+  @IsOptional()
+  @IsString()
+  @IsIn(SUPPORTED_CURRENCIES as readonly string[])
+  currency?: Currency;
 }

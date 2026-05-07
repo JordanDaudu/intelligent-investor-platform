@@ -5,6 +5,7 @@ import {
   CalculationsService,
   type ProjectionPoint,
 } from '../calculations/calculations.service';
+import { DEFAULT_CURRENCY } from '../currencies/currencies.service';
 import { CreateProfileDto } from './dto/create-profile.dto';
 import type { ProfileResponseDto } from './dto/profile-response.dto';
 
@@ -54,6 +55,7 @@ export class ProfilesService {
         bankNet: new Prisma.Decimal(dto.bankNet),
         fixedCostsPercent: dto.fixedCostsPercent ?? null,
         guiltFreeSpendingPercent: dto.guiltFreeSpendingPercent ?? null,
+        currency: dto.currency ?? DEFAULT_CURRENCY,
         spendingPlan: {
           create: {
             fixedCosts: new Prisma.Decimal(plan.buckets.fixedCosts),
@@ -111,6 +113,7 @@ export class ProfilesService {
       bankNet: Number(row.bankNet),
       fixedCostsPercent: row.fixedCostsPercent ?? null,
       guiltFreeSpendingPercent: row.guiltFreeSpendingPercent ?? null,
+      currency: row.currency,
       createdAt: row.createdAt.toISOString(),
       updatedAt: row.updatedAt.toISOString(),
       spendingPlan: row.spendingPlan

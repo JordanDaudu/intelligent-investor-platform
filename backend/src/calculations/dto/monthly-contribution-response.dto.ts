@@ -25,4 +25,11 @@ export class MonthlyContributionResponseDto {
     description: 'Yearly projection data points (one per year)',
   })
   projection!: ProjectionPointDto[];
+
+  @ApiProperty({
+    description: 'ISO 4217 currency code the contribution amount was expressed in (echoed from the request).',
+    example: 'ILS',
+    enum: ['ILS', 'USD', 'EUR', 'GBP'],
+  })
+  currency!: string;
 }

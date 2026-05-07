@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import SalaryForm, { type SalaryFormValues } from '../components/SalaryForm';
 import BucketBreakdown from '../components/BucketBreakdown';
 import SavedProfiles from '../components/SavedProfiles';
@@ -10,8 +10,10 @@ import { investorApi } from '../api/investorApi';
 import type {
   BucketBreakdown as BucketsT,
   CalculationPreview,
+  Currency,
   FinancialProfile,
 } from '../types/api';
+import { useCurrency } from '../currency/CurrencyContext';
 
 const round2 = (n: number): number => Math.round(n * 100) / 100;
 
@@ -27,6 +29,13 @@ const DEFAULT_FIXED_COSTS_PCT = 55;
 const DEFAULT_GUILT_FREE_PCT = 27.5;
 
 export default function DashboardPage() {
+  const { currency, setCurrency, convert } = useCurrency();
+  const prevCurrency = useRef<Currency>(currency);
+  /** Set true right before a programmatic setCurrency that should NOT trigger
+   *  conversion of the typed values (e.g. loading a profile that's already in
+   *  the target currency). Cleared by the effect after it skips one cycle. */
+  const skipNextConversion = useRef(false);
+
   const [values, setValues] = useState<SalaryFormValues>({
     name: '',
     grossSalary: 0,
@@ -47,6 +56,26 @@ export default function DashboardPage() {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
+  // Convert typed salary values when the user switches the active currency.
+  // Skips the conversion on the very first render, on no-op currency changes,
+  // and when loading a profile (which already has values in the target currency).
+  useEffect(() => {
+    const prev = prevCurrency.current;
+    prevCurrency.current = currency;
+
+    if (prev === currency) return;
+    if (skipNextConversion.current) {
+      skipNextConversion.current = false;
+      return;
+    }
+
+    setValues((v) => ({
+      ...v,
+      grossSalary: round2(convert(v.grossSalary, prev, currency)),
+      bankNet: round2(convert(v.bankNet, prev, currency)),
+    }));
+  }, [currency, convert]);
+
   useEffect(() => {
     if (values.bankNet <= 0) {
       setPreview(null);
@@ -66,6 +95,7 @@ export default function DashboardPage() {
           bankNet: values.bankNet,
           fixedCostsPercent,
           guiltFreeSpendingPercent,
+          currency,
         })
         .then((data) => {
           if (!cancelled) setPreview(data);
@@ -83,7 +113,7 @@ export default function DashboardPage() {
       cancelled = true;
       window.clearTimeout(timeoutId);
     };
-  }, [values.grossSalary, values.bankNet, fixedCostsPercent, guiltFreeSpendingPercent]);
+  }, [values.grossSalary, values.bankNet, fixedCostsPercent, guiltFreeSpendingPercent, currency]);
 
   const refreshProfiles = useCallback(async (attempt = 0) => {
     setProfilesLoading(true);
@@ -133,6 +163,7 @@ export default function DashboardPage() {
         bankNet: values.bankNet,
         fixedCostsPercent,
         guiltFreeSpendingPercent,
+        currency,
       });
       await refreshProfiles();
     } catch (e) {
@@ -143,6 +174,12 @@ export default function DashboardPage() {
   };
 
   const onLoadProfile = (p: FinancialProfile) => {
+    // The profile's values are already in p.currency, so when we switch the
+    // active currency to match we must skip the auto-conversion effect.
+    if (p.currency !== currency) {
+      skipNextConversion.current = true;
+      setCurrency(p.currency);
+    }
     setValues({
       name: p.name,
       grossSalary: Number(p.grossSalary),
