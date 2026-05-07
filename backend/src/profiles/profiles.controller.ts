@@ -24,12 +24,17 @@ import { ProfileResponseDto } from './dto/profile-response.dto';
 import { DeleteProfileResponseDto } from './dto/delete-profile-response.dto';
 import { SpendingPlanResponseDto } from './dto/spending-plan-response.dto';
 import { ProjectionPointDto } from '../calculations/dto/projection-point.dto';
+import { GoalsService } from '../goals/goals.service';
+import { GoalResponseDto } from '../goals/dto/goal-response.dto';
 
-@ApiExtraModels(ProfileResponseDto, SpendingPlanResponseDto, ProjectionPointDto, DeleteProfileResponseDto)
+@ApiExtraModels(ProfileResponseDto, SpendingPlanResponseDto, ProjectionPointDto, DeleteProfileResponseDto, GoalResponseDto)
 @ApiTags('profiles')
 @Controller('api/profiles')
 export class ProfilesController {
-  constructor(private readonly profiles: ProfilesService) {}
+  constructor(
+    private readonly profiles: ProfilesService,
+    private readonly goals: GoalsService,
+  ) {}
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
@@ -66,5 +71,15 @@ export class ProfilesController {
   @ApiResponse({ status: 400, description: 'ID is not a valid UUID.' })
   remove(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.profiles.remove(id);
+  }
+
+  @Get(':id/goals')
+  @ApiOperation({ summary: 'List all financial goals for a profile' })
+  @ApiParam({ name: 'id', description: 'UUID of the profile', example: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890' })
+  @ApiOkResponse({ type: GoalResponseDto, isArray: true, description: 'Array of goals belonging to the profile.' })
+  @ApiResponse({ status: 404, description: 'Profile not found.' })
+  @ApiResponse({ status: 400, description: 'ID is not a valid UUID.' })
+  listGoals(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.goals.findByProfile(id);
   }
 }

@@ -75,3 +75,51 @@ export interface MonthlyContributionProjectionResponse {
   projection: ProjectionPoint[];
   currency: Currency;
 }
+
+export type GoalCategory =
+  | 'EMERGENCY_FUND'
+  | 'RETIREMENT'
+  | 'APARTMENT'
+  | 'CAR'
+  | 'VACATION'
+  | 'EDUCATION'
+  | 'CUSTOM';
+
+export type GoalStatus = 'ON_TRACK' | 'SLIGHTLY_BEHIND' | 'AT_RISK';
+
+export interface FinancialGoal {
+  id: string;
+  profileId: string;
+  title: string;
+  category: GoalCategory;
+  targetAmount: number;
+  currentAmount: number;
+  targetDate: string;
+  expectedReturn: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface GoalProjectionPoint {
+  year: number;
+  value: number;
+}
+
+export interface GoalAnalysis {
+  monthlyRequired: number;
+  projectedValueAtDeadline: number;
+  completionPercentage: number;
+  status: GoalStatus;
+  estimatedCompletionDate: string | null;
+  projection: GoalProjectionPoint[];
+}
+
+export interface CreateGoalRequest {
+  profileId: string;
+  title: string;
+  category: GoalCategory;
+  targetAmount: number;
+  currentAmount: number;
+  targetDate: string;
+  expectedReturn?: number;
+}

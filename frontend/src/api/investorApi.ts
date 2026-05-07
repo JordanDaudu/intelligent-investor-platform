@@ -1,8 +1,11 @@
 import type {
   CalculationPreview,
+  CreateGoalRequest,
   CurrenciesResponse,
   Currency,
+  FinancialGoal,
   FinancialProfile,
+  GoalAnalysis,
   HealthStatus,
   MonthlyContributionProjectionRequest,
   MonthlyContributionProjectionResponse,
@@ -98,4 +101,20 @@ export const investorApi = {
       method: 'POST',
       body: JSON.stringify(input),
     }),
+
+  createGoal: (input: CreateGoalRequest) =>
+    http<FinancialGoal>('/api/goals', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }),
+
+  getGoalsForProfile: (profileId: string) =>
+    http<FinancialGoal[]>(`/api/profiles/${profileId}/goals`),
+
+  getGoal: (id: string) => http<FinancialGoal>(`/api/goals/${id}`),
+
+  deleteGoal: (id: string) =>
+    http<{ id: string; deleted: true }>(`/api/goals/${id}`, { method: 'DELETE' }),
+
+  getGoalAnalysis: (id: string) => http<GoalAnalysis>(`/api/goals/${id}/analysis`),
 };
