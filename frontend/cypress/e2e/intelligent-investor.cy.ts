@@ -17,10 +17,12 @@ describe('Intelligent Investor — happy path', () => {
     cy.contains('label', 'Gross monthly salary').find('input').type('20000');
     cy.contains('button', 'Estimate').click();
 
-    cy.get('[data-testid="bucket-fixed-amount"]').should('contain', '$7,480.00');
-    cy.get('[data-testid="bucket-savings-amount"]').should('contain', '$1,360.00');
-    cy.get('[data-testid="bucket-investments-amount"]').should('contain', '$1,360.00');
-    cy.get('[data-testid="bucket-guilt-amount"]').should('contain', '$3,740.00');
+    // ILS is the default currency post currency-switcher feature, so amounts render with ₪.
+    // Assert the numeric portion only (matches SalaryForm.test.tsx) to stay symbol-agnostic.
+    cy.get('[data-testid="bucket-fixed-amount"]').should('contain', '7,480.00');
+    cy.get('[data-testid="bucket-savings-amount"]').should('contain', '1,360.00');
+    cy.get('[data-testid="bucket-investments-amount"]').should('contain', '1,360.00');
+    cy.get('[data-testid="bucket-guilt-amount"]').should('contain', '3,740.00');
 
     cy.contains('button', 'Save profile').click();
     cy.get('[data-testid="profile-list"]').should('contain', uniqueName);

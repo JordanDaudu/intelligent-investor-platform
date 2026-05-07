@@ -36,6 +36,7 @@ The project is intentionally heavy on DevOps practices — Docker, Git Flow, CI/
 - DevOps health-status card calling `GET /health` (backend + database) plus the build-time environment label.
 - Dark/light mode toggle, persisted in `localStorage`.
 - Optional **Scenario Lab** — sliders for return rate / horizon / investment amount override (same single-amount formula as the required chart).
+- **Currency switcher** — pick ILS (default), USD, EUR, or GBP from the top-right selector. Typed values live-convert across currencies; saved profiles remember the currency they were created in. Hardcoded ILS-anchored rates served by the backend (`GET /api/currencies`).
 - Cypress E2E + Vitest component tests + Jest unit and integration tests.
 
 ---
@@ -81,6 +82,7 @@ See `docs/architecture.md` for the full diagram and data flow.
 │   ├── src/
 │   │   ├── calculations/     Pure financial formulas (unit tested)
 │   │   ├── profiles/         Persisted profiles + spending plans
+│   │   ├── currencies/       Currency rate table + /api/currencies endpoint
 │   │   ├── health/           DB-aware /health endpoint
 │   │   ├── prisma/           Prisma module + service (singleton)
 │   │   └── config/           Env validation
@@ -88,7 +90,8 @@ See `docs/architecture.md` for the full diagram and data flow.
 ├── frontend/                 React + Vite frontend
 │   ├── src/
 │   │   ├── api/              Typed fetch wrapper
-│   │   ├── components/       Layout, SalaryForm, BucketCard, etc.
+│   │   ├── components/       Layout, SalaryForm, BucketCard, CurrencySelector, etc.
+│   │   ├── currency/         CurrencyProvider context (rates, format, convert)
 │   │   ├── pages/            DashboardPage
 │   │   └── tests/            Vitest + RTL setup and tests
 │   └── cypress/e2e/          Cypress happy-path test
@@ -158,6 +161,7 @@ Swagger/OpenAPI documentation is available locally at `http://localhost:8000/api
 | Method | Path                                                | Purpose                                             |
 |--------|-----------------------------------------------------|-----------------------------------------------------|
 | GET    | `/health`                                           | 200 only when backend + DB are reachable            |
+| GET    | `/api/currencies`                                   | Supported codes, default, ILS-anchored rate table   |
 | POST   | `/api/calculations/preview`                         | Stateless buckets + 15-year projection              |
 | POST   | `/api/calculations/monthly-contribution-projection` | Extra-credit: future value of monthly contributions |
 | POST   | `/api/profiles`                                     | Save profile + computed plan                        |
@@ -169,7 +173,7 @@ Swagger/OpenAPI documentation is available locally at `http://localhost:8000/api
 
 ```jsonc
 // request
-{ "grossSalary": 20000, "bankNet": 13600 }
+{ "grossSalary": 20000, "bankNet": 13600, "currency": "ILS" }
 
 // response
 {
@@ -187,9 +191,24 @@ Swagger/OpenAPI documentation is available locally at `http://localhost:8000/api
     /* ... 15 entries total ... */
   ],
   "annualReturnRate": 0.07,
-  "projectionYears": 15
+  "projectionYears": 15,
+  "fixedCostsPercent": 55,
+  "guiltFreeSpendingPercent": 27.5,
+  "currency": "ILS"
 }
 ```
+
+`GET /api/currencies` example response:
+
+```jsonc
+{
+  "supported": ["ILS", "USD", "EUR", "GBP"],
+  "default": "ILS",
+  "ratesInIls": { "ILS": 1, "USD": 3.7, "EUR": 4.0, "GBP": 4.7 }
+}
+```
+
+The frontend caches this on app mount and uses it for live display conversion. The backend never converts on storage — values are kept in the profile's own currency, and percentages are unit-invariant so the bucket math works in any currency. Saving a profile records the active currency on the row (`currency` column on `financial_profiles`); loading a profile restores it as the active dashboard currency.
 
 ---
 

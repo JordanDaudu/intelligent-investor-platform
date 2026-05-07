@@ -14,7 +14,8 @@
 6. Click **Save profile** → it appears in **Saved profiles**.
 7. Hit refresh in the browser → the profile is still there (proves DB persistence).
 8. Toggle dark mode → it sticks across reload (proves localStorage persistence).
-9. Wiggle the **Scenario Lab** sliders → second chart updates live; required chart above is unchanged.
+9. Open the **currency selector** in the top-right (defaults to **ILS**). Switch to **USD** → the typed bank-net of `13600` re-renders as `3675.68`, and bucket cards re-format with `$`. Switch to **EUR** / **GBP** to show all four. Note that no extra API call is required — the rate table was pulled once from `GET /api/currencies` on page load. Saving a new profile in USD captures the currency on the row; loading it later restores the active currency.
+10. Wiggle the **Scenario Lab** sliders → second chart updates live; required chart above is unchanged.
 
 ## 3. DevOps tour (4 min)
 
