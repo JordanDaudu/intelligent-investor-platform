@@ -65,4 +65,36 @@ describe('Intelligent Investor — happy path', () => {
       .find('input[type="range"]')
       .should('have.length', 2);
   });
+
+  it('defaults the active currency to ILS and exposes the four-currency selector', () => {
+    cy.visit('/');
+
+    cy.get('[data-testid="currency-selector"]').should('exist');
+    cy.get('[data-testid="currency-selector"] select')
+      .should('have.value', 'ILS');
+    cy.get('[data-testid="currency-selector"] option').should('have.length', 4);
+  });
+
+  it('switching the currency to USD reformats bucket cards and persists per-profile after reload', () => {
+    const usdName = `USD Tester ${Date.now()}`;
+    cy.visit('/');
+
+    cy.contains('label', 'Name').find('input').type(usdName);
+    cy.contains('label', 'Gross monthly salary').find('input').type('20000');
+    cy.contains('button', 'Estimate').click();
+
+    // Switch to USD — typed bankNet (13600 ILS) converts to ~3675.68 USD.
+    cy.get('[data-testid="currency-selector"] select').select('USD');
+    cy.contains('label', 'Bank net').find('input').should('have.value', '3675.68');
+
+    // Bucket card displays use $ now.
+    cy.get('[data-testid="bucket-fixed-amount"]').should('contain', '$');
+
+    // Save in USD and confirm the saved profile persists with currency context.
+    cy.contains('button', 'Save profile').click();
+    cy.get('[data-testid="profile-list"]').should('contain', usdName);
+
+    cy.reload();
+    cy.get('[data-testid="profile-list"]').should('contain', usdName);
+  });
 });

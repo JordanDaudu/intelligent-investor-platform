@@ -10,17 +10,11 @@ import {
   YAxis,
 } from 'recharts';
 import type { ProjectionPoint } from '../types/api';
+import { useCurrency } from '../currency/CurrencyContext';
 
 interface ScenarioLabProps {
   defaultMonthlyInvestment: number;
 }
-
-const formatUsd = (n: number): string =>
-  new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    maximumFractionDigits: 0,
-  }).format(n);
 
 function buildProjection(
   investment: number,
@@ -36,6 +30,7 @@ function buildProjection(
 }
 
 export default function ScenarioLab({ defaultMonthlyInvestment }: ScenarioLabProps) {
+  const { format: formatUsd } = useCurrency();
   const [returnRate, setReturnRate] = useState(0.07);
   const [years, setYears] = useState(15);
   const [override, setOverride] = useState<number | ''>('');

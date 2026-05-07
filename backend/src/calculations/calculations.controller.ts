@@ -1,6 +1,7 @@
 import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiOkResponse, ApiResponse, ApiExtraModels } from '@nestjs/swagger';
 import { CalculationsService, REQUIRED_ANNUAL_RETURN, REQUIRED_PROJECTION_YEARS } from './calculations.service';
+import { DEFAULT_CURRENCY } from '../currencies/currencies.service';
 import { CalculationPreviewDto } from './dto/calculation-preview.dto';
 import { FullPlanDto } from './dto/full-plan.dto';
 import { BucketBreakdownDto } from './dto/bucket-breakdown.dto';
@@ -28,6 +29,7 @@ export class CalculationsController {
     return this.calculations.calculateFullPlan(dto.grossSalary, dto.bankNet, {
       fixedCostsPercent: dto.fixedCostsPercent,
       guiltFreeSpendingPercent: dto.guiltFreeSpendingPercent,
+      currency: dto.currency,
     });
   }
 
@@ -45,11 +47,12 @@ export class CalculationsController {
   monthlyContributionProjection(@Body() dto: MonthlyContributionPreviewDto): MonthlyContributionResponseDto {
     const annualReturnRate = dto.annualReturnRate ?? REQUIRED_ANNUAL_RETURN;
     const years = dto.years ?? REQUIRED_PROJECTION_YEARS;
+    const currency = dto.currency ?? DEFAULT_CURRENCY;
     const projection = this.calculations.calculateMonthlyContributionProjection(
       dto.monthlyContribution,
       annualReturnRate,
       years,
     );
-    return { monthlyContribution: dto.monthlyContribution, annualReturnRate, years, projection };
+    return { monthlyContribution: dto.monthlyContribution, annualReturnRate, years, projection, currency };
   }
 }

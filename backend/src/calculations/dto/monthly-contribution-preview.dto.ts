@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsInt, IsNumber, IsOptional, Min } from 'class-validator';
+import { IsIn, IsInt, IsNumber, IsOptional, IsString, Min } from 'class-validator';
+import { SUPPORTED_CURRENCIES, type Currency } from '../../currencies/currencies.service';
 
 export class MonthlyContributionPreviewDto {
   @ApiProperty({
@@ -34,4 +35,15 @@ export class MonthlyContributionPreviewDto {
   @IsInt()
   @Min(1)
   years?: number;
+
+  @ApiPropertyOptional({
+    description:
+      'ISO 4217 currency code the contribution amount is expressed in. Echoed back in the response. Defaults to ILS.',
+    example: 'ILS',
+    enum: SUPPORTED_CURRENCIES,
+  })
+  @IsOptional()
+  @IsString()
+  @IsIn(SUPPORTED_CURRENCIES as readonly string[])
+  currency?: Currency;
 }

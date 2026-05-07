@@ -11,21 +11,16 @@ import {
 } from 'recharts';
 import { investorApi } from '../api/investorApi';
 import type { MonthlyContributionProjectionResponse } from '../types/api';
+import { useCurrency } from '../currency/CurrencyContext';
 
 interface MonthlyContributionProjectionProps {
   defaultMonthlyContribution: number;
 }
 
-const formatUsd = (n: number): string =>
-  new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    maximumFractionDigits: 0,
-  }).format(n);
-
 export default function MonthlyContributionProjection({
   defaultMonthlyContribution,
 }: MonthlyContributionProjectionProps) {
+  const { format: formatUsd, currency } = useCurrency();
   const [returnRate, setReturnRate] = useState(0.07);
   const [years, setYears] = useState(15);
   const [result, setResult] = useState<MonthlyContributionProjectionResponse | null>(null);
@@ -47,6 +42,7 @@ export default function MonthlyContributionProjection({
         monthlyContribution: defaultMonthlyContribution,
         annualReturnRate: returnRate,
         years,
+        currency,
       })
       .then((data) => {
         if (!cancelled) setResult(data);
@@ -62,7 +58,7 @@ export default function MonthlyContributionProjection({
     return () => {
       cancelled = true;
     };
-  }, [defaultMonthlyContribution, returnRate, years]);
+  }, [defaultMonthlyContribution, returnRate, years, currency]);
 
   const finalValue = result?.projection[result.projection.length - 1]?.value ?? 0;
 

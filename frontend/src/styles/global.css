@@ -99,6 +99,45 @@ h2 { font-size: 1.15rem; }
   animation: theme-icon-in 0.18s ease both;
 }
 
+.app-header__controls {
+  display: inline-flex; align-items: center; gap: 8px;
+}
+.currency-selector {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 4px 8px;
+  height: 36px;
+  font-size: 0.85rem;
+  color: var(--text);
+}
+.currency-selector__label {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.currency-selector__select {
+  background: transparent;
+  border: none;
+  color: var(--text);
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  outline: none;
+  padding-right: 4px;
+}
+.currency-selector__select:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+.currency-selector__select option {
+  background: var(--surface);
+  color: var(--text);
+}
+
 .app-main {
   flex: 1; max-width: 1200px; width: 100%; margin: 0 auto; padding: 24px 20px 64px;
 }
