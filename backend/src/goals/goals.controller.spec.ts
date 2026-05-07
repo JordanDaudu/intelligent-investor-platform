@@ -8,6 +8,7 @@ describe('GoalsController', () => {
   const service = {
     create: jest.fn(),
     findOne: jest.fn(),
+    update: jest.fn(),
     remove: jest.fn(),
     analyze: jest.fn(),
   };
@@ -41,6 +42,13 @@ describe('GoalsController', () => {
     service.findOne.mockResolvedValue({ id: 'abc' });
     await expect(controller.findOne('abc')).resolves.toEqual({ id: 'abc' });
     expect(service.findOne).toHaveBeenCalledWith('abc');
+  });
+
+  it('delegates update() to GoalsService with parsed id and dto', async () => {
+    const dto = { title: 'Updated', currentAmount: 300 };
+    service.update.mockResolvedValue({ id: 'abc', title: 'Updated' });
+    await expect(controller.update('abc', dto)).resolves.toEqual({ id: 'abc', title: 'Updated' });
+    expect(service.update).toHaveBeenCalledWith('abc', dto);
   });
 
   it('delegates remove() to GoalsService with parsed id', async () => {

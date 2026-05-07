@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import GoalCard from '../components/GoalCard';
 import type { FinancialGoal, GoalAnalysis } from '../types/api';
 import { investorApi } from '../api/investorApi';
@@ -91,5 +92,56 @@ describe('GoalCard', () => {
     await waitFor(() => {
       expect(screen.getByText('25%')).toBeInTheDocument();
     });
+  });
+
+  it('Edit button fires onEdit with the goal', async () => {
+    const onEdit = vi.fn();
+    const user = userEvent.setup();
+    render(<GoalCard goal={goal} currency="USD" onDelete={() => {}} onEdit={onEdit} />);
+
+    await user.click(screen.getByTestId('goal-edit'));
+    expect(onEdit).toHaveBeenCalledWith(goal);
+  });
+
+  it('Quick Add submits PATCH with currentAmount + delta and calls onContributionAdded', async () => {
+    const updateSpy = vi.spyOn(investorApi, 'updateGoal').mockResolvedValue({
+      ...goal,
+      currentAmount: goal.currentAmount + 1000,
+    });
+    const onContributionAdded = vi.fn();
+    const user = userEvent.setup();
+
+    render(
+      <GoalCard
+        goal={goal}
+        currency="USD"
+        onDelete={() => {}}
+        onContributionAdded={onContributionAdded}
+      />,
+    );
+
+    await user.click(screen.getByTestId('goal-contrib-open'));
+    const input = screen.getByLabelText(/contribution amount/i);
+    await user.type(input, '1000');
+    await user.click(screen.getByTestId('goal-contrib-submit'));
+
+    await waitFor(() => {
+      expect(updateSpy).toHaveBeenCalledWith('goal-1', {
+        currentAmount: 251000,
+      });
+    });
+    expect(onContributionAdded).toHaveBeenCalled();
+  });
+
+  it('Quick Add shows an error and does not call API when amount is non-positive', async () => {
+    const updateSpy = vi.spyOn(investorApi, 'updateGoal').mockResolvedValue({} as never);
+    const user = userEvent.setup();
+    render(<GoalCard goal={goal} currency="USD" onDelete={() => {}} />);
+
+    await user.click(screen.getByTestId('goal-contrib-open'));
+    await user.click(screen.getByTestId('goal-contrib-submit'));
+
+    expect(await screen.findByTestId('goal-contrib-error')).toBeInTheDocument();
+    expect(updateSpy).not.toHaveBeenCalled();
   });
 });

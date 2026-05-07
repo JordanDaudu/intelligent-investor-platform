@@ -2,8 +2,10 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateGoalDto } from './dto/create-goal.dto';
+import { UpdateGoalDto } from './dto/update-goal.dto';
 import type { GoalResponseDto } from './dto/goal-response.dto';
 import type { GoalAnalysisResponseDto, GoalStatus } from './dto/goal-analysis-response.dto';
+import type { GoalsSummaryResponseDto } from './dto/goals-summary-response.dto';
 import type { ProjectionPoint } from '../calculations/calculations.service';
 
 const round2 = (n: number): number => Math.round(n * 100) / 100;
@@ -73,6 +75,96 @@ export class GoalsService {
       throw new NotFoundException(`Goal ${id} not found`);
     }
     return this.toResponse(row);
+  }
+
+  async update(id: string, dto: UpdateGoalDto): Promise<GoalResponseDto> {
+    const data: Prisma.FinancialGoalUpdateInput = {};
+
+    if (dto.title !== undefined) data.title = dto.title;
+    if (dto.category !== undefined) data.category = dto.category;
+    if (dto.targetAmount !== undefined) {
+      data.targetAmount = new Prisma.Decimal(dto.targetAmount);
+    }
+    if (dto.currentAmount !== undefined) {
+      data.currentAmount = new Prisma.Decimal(dto.currentAmount);
+    }
+    if (dto.expectedReturn !== undefined) {
+      data.expectedReturn = new Prisma.Decimal(dto.expectedReturn);
+    }
+    if (dto.targetDate !== undefined) {
+      const targetDate = new Date(dto.targetDate);
+      if (Number.isNaN(targetDate.getTime())) {
+        throw new BadRequestException('targetDate must be a valid ISO 8601 date');
+      }
+      if (targetDate.getTime() <= Date.now()) {
+        throw new BadRequestException('targetDate must be in the future');
+      }
+      data.targetDate = targetDate;
+    }
+
+    try {
+      const updated = await this.prisma.financialGoal.update({ where: { id }, data });
+      return this.toResponse(updated);
+    } catch (err) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2025') {
+        throw new NotFoundException(`Goal ${id} not found`);
+      }
+      throw err;
+    }
+  }
+
+  /**
+   * Aggregate every goal on the profile into a stats summary. Reuses analyze() per goal —
+   * one extra Prisma roundtrip per goal but the math is shared and not duplicated.
+   */
+  async summarizeForProfile(profileId: string): Promise<GoalsSummaryResponseDto> {
+    const profile = await this.prisma.financialProfile.findUnique({
+      where: { id: profileId },
+      select: { id: true },
+    });
+    if (!profile) {
+      throw new NotFoundException(`Profile ${profileId} not found`);
+    }
+
+    const goals = await this.prisma.financialGoal.findMany({ where: { profileId } });
+
+    const statusCounts: Record<GoalStatus, number> = {
+      ON_TRACK: 0,
+      SLIGHTLY_BEHIND: 0,
+      AT_RISK: 0,
+    };
+
+    if (goals.length === 0) {
+      return {
+        goalCount: 0,
+        totalTargetAmount: 0,
+        totalCurrentAmount: 0,
+        totalMonthlyRequired: 0,
+        overallCompletionPercentage: 0,
+        statusCounts,
+      };
+    }
+
+    let totalTarget = 0;
+    let totalCurrent = 0;
+    let totalMonthly = 0;
+
+    for (const goal of goals) {
+      const analysis = await this.analyze(goal.id);
+      totalTarget += Number(goal.targetAmount);
+      totalCurrent += Number(goal.currentAmount);
+      totalMonthly += analysis.monthlyRequired;
+      statusCounts[analysis.status] += 1;
+    }
+
+    return {
+      goalCount: goals.length,
+      totalTargetAmount: round2(totalTarget),
+      totalCurrentAmount: round2(totalCurrent),
+      totalMonthlyRequired: round2(totalMonthly),
+      overallCompletionPercentage: this.calculateCompletionPercentage(totalCurrent, totalTarget),
+      statusCounts,
+    };
   }
 
   async remove(id: string): Promise<{ id: string; deleted: true }> {

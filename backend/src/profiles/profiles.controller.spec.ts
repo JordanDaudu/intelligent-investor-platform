@@ -13,6 +13,7 @@ describe('ProfilesController', () => {
   };
   const goalsService = {
     findByProfile: jest.fn(),
+    summarizeForProfile: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -55,5 +56,12 @@ describe('ProfilesController', () => {
     goalsService.findByProfile.mockResolvedValue([{ id: 'g1' }]);
     await expect(controller.listGoals('abc')).resolves.toEqual([{ id: 'g1' }]);
     expect(goalsService.findByProfile).toHaveBeenCalledWith('abc');
+  });
+
+  it('delegates goalsSummary() with the parsed id to GoalsService.summarizeForProfile', async () => {
+    const summary = { goalCount: 0 };
+    goalsService.summarizeForProfile.mockResolvedValue(summary);
+    await expect(controller.goalsSummary('abc')).resolves.toEqual(summary);
+    expect(goalsService.summarizeForProfile).toHaveBeenCalledWith('abc');
   });
 });

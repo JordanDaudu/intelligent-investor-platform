@@ -7,6 +7,7 @@ import {
   HttpStatus,
   Param,
   ParseUUIDPipe,
+  Patch,
   Post,
 } from '@nestjs/common';
 import {
@@ -20,6 +21,7 @@ import {
 } from '@nestjs/swagger';
 import { GoalsService } from './goals.service';
 import { CreateGoalDto } from './dto/create-goal.dto';
+import { UpdateGoalDto } from './dto/update-goal.dto';
 import { GoalResponseDto } from './dto/goal-response.dto';
 import { GoalAnalysisResponseDto } from './dto/goal-analysis-response.dto';
 import { ProjectionPointDto } from '../calculations/dto/projection-point.dto';
@@ -48,6 +50,25 @@ export class GoalsController {
   @ApiResponse({ status: 400, description: 'ID is not a valid UUID.' })
   findOne(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.goals.findOne(id);
+  }
+
+  @Patch(':id')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Partially update a goal',
+    description:
+      'Update any subset of title, category, targetAmount, currentAmount, targetDate, expectedReturn. ' +
+      'profileId is intentionally not editable. Re-validates supplied fields.',
+  })
+  @ApiParam({ name: 'id', description: 'UUID of the goal to update' })
+  @ApiOkResponse({ type: GoalResponseDto, description: 'Goal updated successfully.' })
+  @ApiResponse({ status: 400, description: 'Validation error.' })
+  @ApiResponse({ status: 404, description: 'Goal not found.' })
+  update(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() dto: UpdateGoalDto,
+  ) {
+    return this.goals.update(id, dto);
   }
 
   @Delete(':id')

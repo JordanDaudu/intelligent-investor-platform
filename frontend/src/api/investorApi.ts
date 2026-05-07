@@ -6,9 +6,11 @@ import type {
   FinancialGoal,
   FinancialProfile,
   GoalAnalysis,
+  GoalsSummary,
   HealthStatus,
   MonthlyContributionProjectionRequest,
   MonthlyContributionProjectionResponse,
+  UpdateGoalRequest,
 } from '../types/api';
 
 /**
@@ -117,4 +119,13 @@ export const investorApi = {
     http<{ id: string; deleted: true }>(`/api/goals/${id}`, { method: 'DELETE' }),
 
   getGoalAnalysis: (id: string) => http<GoalAnalysis>(`/api/goals/${id}/analysis`),
+
+  updateGoal: (id: string, input: UpdateGoalRequest) =>
+    http<FinancialGoal>(`/api/goals/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(input),
+    }),
+
+  getGoalsSummary: (profileId: string) =>
+    http<GoalsSummary>(`/api/profiles/${profileId}/goals/summary`),
 };

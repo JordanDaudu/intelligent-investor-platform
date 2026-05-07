@@ -8,6 +8,7 @@ type PrismaMock = {
     create: jest.Mock;
     findMany: jest.Mock;
     findUnique: jest.Mock;
+    update: jest.Mock;
     delete: jest.Mock;
   };
 };
@@ -19,6 +20,7 @@ function makePrismaMock(): PrismaMock {
       create: jest.fn(),
       findMany: jest.fn(),
       findUnique: jest.fn(),
+      update: jest.fn(),
       delete: jest.fn(),
     },
   };
@@ -141,6 +143,132 @@ describe('GoalsService', () => {
     it('throws NotFoundException when the goal is missing', async () => {
       prisma.financialGoal.findUnique.mockResolvedValue(null);
       await expect(service.findOne('missing')).rejects.toBeInstanceOf(NotFoundException);
+    });
+  });
+
+  describe('update', () => {
+    it('updates supplied fields and returns the mapped row', async () => {
+      const updatedRow = makeRow({
+        title: 'Buy Penthouse',
+        targetAmount: new Prisma.Decimal(1500000),
+      });
+      prisma.financialGoal.update.mockResolvedValue(updatedRow);
+
+      const futureIso = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+      const result = await service.update('goal-uuid', {
+        title: 'Buy Penthouse',
+        targetAmount: 1500000,
+        targetDate: futureIso,
+      });
+
+      const args = prisma.financialGoal.update.mock.calls[0][0];
+      expect(args.where).toEqual({ id: 'goal-uuid' });
+      expect(args.data.title).toBe('Buy Penthouse');
+      expect(args.data.targetAmount).toBeInstanceOf(Prisma.Decimal);
+      expect(args.data.targetDate).toBeInstanceOf(Date);
+      // Untouched fields are not in the update payload
+      expect(args.data.currentAmount).toBeUndefined();
+      expect(args.data.expectedReturn).toBeUndefined();
+      expect(args.data.category).toBeUndefined();
+
+      expect(result.title).toBe('Buy Penthouse');
+      expect(result.targetAmount).toBe(1500000);
+    });
+
+    it('partial update with only currentAmount preserves other fields', async () => {
+      prisma.financialGoal.update.mockResolvedValue(
+        makeRow({ currentAmount: new Prisma.Decimal(300000) }),
+      );
+
+      await service.update('goal-uuid', { currentAmount: 300000 });
+
+      const args = prisma.financialGoal.update.mock.calls[0][0];
+      expect(args.data.currentAmount).toBeInstanceOf(Prisma.Decimal);
+      expect(Object.keys(args.data)).toEqual(['currentAmount']);
+    });
+
+    it('throws BadRequestException when targetDate is in the past', async () => {
+      await expect(
+        service.update('goal-uuid', { targetDate: '2000-01-01' }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(prisma.financialGoal.update).not.toHaveBeenCalled();
+    });
+
+    it('maps Prisma P2025 to NotFoundException', async () => {
+      const p2025 = new Prisma.PrismaClientKnownRequestError('not found', {
+        code: 'P2025',
+        clientVersion: 'test',
+      });
+      prisma.financialGoal.update.mockRejectedValue(p2025);
+
+      await expect(service.update('missing', { title: 'X' })).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('rethrows non-P2025 Prisma errors', async () => {
+      const other = new Prisma.PrismaClientKnownRequestError('boom', {
+        code: 'P2002',
+        clientVersion: 'test',
+      });
+      prisma.financialGoal.update.mockRejectedValue(other);
+
+      await expect(service.update('id', { title: 'X' })).rejects.toBe(other);
+    });
+  });
+
+  describe('summarizeForProfile', () => {
+    it('returns zero-stats shape when the profile has no goals', async () => {
+      prisma.financialProfile.findUnique.mockResolvedValue({ id: 'profile-uuid' });
+      prisma.financialGoal.findMany.mockResolvedValue([]);
+
+      const result = await service.summarizeForProfile('profile-uuid');
+
+      expect(result).toEqual({
+        goalCount: 0,
+        totalTargetAmount: 0,
+        totalCurrentAmount: 0,
+        totalMonthlyRequired: 0,
+        overallCompletionPercentage: 0,
+        statusCounts: { ON_TRACK: 0, SLIGHTLY_BEHIND: 0, AT_RISK: 0 },
+      });
+    });
+
+    it('aggregates totals + status counts across goals', async () => {
+      prisma.financialProfile.findUnique.mockResolvedValue({ id: 'profile-uuid' });
+      const goals = [
+        makeRow({
+          id: 'g1',
+          targetAmount: new Prisma.Decimal(1000),
+          currentAmount: new Prisma.Decimal(250),
+        }),
+        makeRow({
+          id: 'g2',
+          targetAmount: new Prisma.Decimal(2000),
+          currentAmount: new Prisma.Decimal(500),
+        }),
+      ];
+      prisma.financialGoal.findMany.mockResolvedValue(goals);
+      // analyze() reads each goal individually
+      prisma.financialGoal.findUnique.mockImplementation(async ({ where }) =>
+        goals.find((g) => g.id === where.id),
+      );
+
+      const result = await service.summarizeForProfile('profile-uuid');
+
+      expect(result.goalCount).toBe(2);
+      expect(result.totalTargetAmount).toBe(3000);
+      expect(result.totalCurrentAmount).toBe(750);
+      expect(result.overallCompletionPercentage).toBe(25); // 750/3000 = 25
+      expect(typeof result.totalMonthlyRequired).toBe('number');
+      const totalCounts =
+        result.statusCounts.ON_TRACK +
+        result.statusCounts.SLIGHTLY_BEHIND +
+        result.statusCounts.AT_RISK;
+      expect(totalCounts).toBe(2);
+    });
+
+    it('throws NotFoundException when the profile is missing', async () => {
+      prisma.financialProfile.findUnique.mockResolvedValue(null);
+      await expect(service.summarizeForProfile('missing')).rejects.toBeInstanceOf(NotFoundException);
     });
   });
 

@@ -123,3 +123,23 @@ export interface CreateGoalRequest {
   targetDate: string;
   expectedReturn?: number;
 }
+
+export interface UpdateGoalRequest {
+  title?: string;
+  category?: GoalCategory;
+  targetAmount?: number;
+  currentAmount?: number;
+  targetDate?: string;
+  expectedReturn?: number;
+}
+
+export type GoalStatusCounts = Record<GoalStatus, number>;
+
+export interface GoalsSummary {
+  goalCount: number;
+  totalTargetAmount: number;
+  totalCurrentAmount: number;
+  totalMonthlyRequired: number;
+  overallCompletionPercentage: number;
+  statusCounts: GoalStatusCounts;
+}

@@ -422,3 +422,40 @@ h2 { font-size: 1.15rem; }
   border-radius: var(--radius-sm); border: 1px solid var(--border);
   background: var(--surface-2); color: var(--text);
 }
+
+/* Summary card + toolbar */
+.goals-summary { display: flex; flex-direction: column; gap: 12px; margin-bottom: 16px; }
+.goals-summary__header h3 { font-size: 1rem; }
+.goals-summary__grid {
+  display: grid; gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+}
+.goals-summary__stat { padding: 10px 12px; border-radius: var(--radius-sm); background: var(--surface-2); border: 1px solid var(--border); }
+.goals-summary__value { font-weight: 700; font-size: 1.15rem; margin-top: 2px; }
+.goals-summary__chips { display: flex; gap: 8px; flex-wrap: wrap; }
+
+.goals-toolbar {
+  display: grid; gap: 12px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-bottom: 16px;
+}
+@media (max-width: 720px) { .goals-toolbar { grid-template-columns: 1fr; } }
+.goals-toolbar__field select {
+  width: 100%; font: inherit; padding: 9px 10px;
+  border-radius: var(--radius-sm); border: 1px solid var(--border);
+  background: var(--surface-2); color: var(--text);
+}
+
+/* Quick-add contribution row */
+.goal-card__contrib {
+  display: grid; gap: 8px; grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  padding: 10px 12px; border-radius: var(--radius-sm);
+  background: var(--surface-2); border: 1px solid var(--border);
+}
+.goal-card__contrib input {
+  width: 100%; font: inherit; padding: 8px 10px;
+  border-radius: var(--radius-sm); border: 1px solid var(--border);
+  background: var(--surface); color: var(--text);
+}
+.goal-card__contrib .alert { grid-column: 1 / -1; margin-top: 0; }

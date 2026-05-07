@@ -177,6 +177,109 @@ describe('Financial Goals API (e2e)', () => {
     });
   });
 
+  describe('PATCH /api/goals/:id', () => {
+    let editGoalId: string;
+
+    beforeAll(async () => {
+      const created = await request(app.getHttpServer())
+        .post('/api/goals')
+        .send({
+          profileId,
+          title: 'Editable Goal',
+          category: 'CAR',
+          targetAmount: 50000,
+          currentAmount: 5000,
+          targetDate: futureDate(3),
+        })
+        .expect(201);
+      editGoalId = created.body.id;
+    });
+
+    it('updates a subset of fields and returns the updated goal', async () => {
+      const res = await request(app.getHttpServer())
+        .patch(`/api/goals/${editGoalId}`)
+        .send({ title: 'Updated Car Goal', currentAmount: 7500 })
+        .expect(200);
+
+      expect(res.body.id).toBe(editGoalId);
+      expect(res.body.title).toBe('Updated Car Goal');
+      expect(res.body.currentAmount).toBe(7500);
+      // Untouched
+      expect(res.body.category).toBe('CAR');
+      expect(res.body.targetAmount).toBe(50000);
+    });
+
+    it('returns 404 for a missing goal', async () => {
+      await request(app.getHttpServer())
+        .patch('/api/goals/00000000-0000-0000-0000-000000000000')
+        .send({ title: 'X' })
+        .expect(404);
+    });
+
+    it('returns 400 when targetDate is in the past', async () => {
+      await request(app.getHttpServer())
+        .patch(`/api/goals/${editGoalId}`)
+        .send({ targetDate: '2000-01-01' })
+        .expect(400);
+    });
+
+    it('returns 400 when targetAmount is non-positive', async () => {
+      await request(app.getHttpServer())
+        .patch(`/api/goals/${editGoalId}`)
+        .send({ targetAmount: 0 })
+        .expect(400);
+    });
+  });
+
+  describe('GET /api/profiles/:id/goals/summary', () => {
+    it('returns aggregate stats for an existing profile', async () => {
+      const res = await request(app.getHttpServer())
+        .get(`/api/profiles/${profileId}/goals/summary`)
+        .expect(200);
+
+      expect(typeof res.body.goalCount).toBe('number');
+      expect(res.body.goalCount).toBeGreaterThan(0);
+      expect(typeof res.body.totalTargetAmount).toBe('number');
+      expect(typeof res.body.totalCurrentAmount).toBe('number');
+      expect(typeof res.body.totalMonthlyRequired).toBe('number');
+      expect(typeof res.body.overallCompletionPercentage).toBe('number');
+      expect(res.body.statusCounts).toHaveProperty('ON_TRACK');
+      expect(res.body.statusCounts).toHaveProperty('SLIGHTLY_BEHIND');
+      expect(res.body.statusCounts).toHaveProperty('AT_RISK');
+      const counts =
+        res.body.statusCounts.ON_TRACK +
+        res.body.statusCounts.SLIGHTLY_BEHIND +
+        res.body.statusCounts.AT_RISK;
+      expect(counts).toBe(res.body.goalCount);
+    });
+
+    it('returns zero-stats for a profile with no goals', async () => {
+      const empty = await request(app.getHttpServer())
+        .post('/api/profiles')
+        .send({ name: 'No Goals', grossSalary: 100, bankNet: 68 })
+        .expect(201);
+
+      const res = await request(app.getHttpServer())
+        .get(`/api/profiles/${empty.body.id}/goals/summary`)
+        .expect(200);
+
+      expect(res.body).toEqual({
+        goalCount: 0,
+        totalTargetAmount: 0,
+        totalCurrentAmount: 0,
+        totalMonthlyRequired: 0,
+        overallCompletionPercentage: 0,
+        statusCounts: { ON_TRACK: 0, SLIGHTLY_BEHIND: 0, AT_RISK: 0 },
+      });
+    });
+
+    it('returns 404 for a missing profile', async () => {
+      await request(app.getHttpServer())
+        .get('/api/profiles/00000000-0000-0000-0000-000000000000/goals/summary')
+        .expect(404);
+    });
+  });
+
   describe('DELETE /api/goals/:id', () => {
     it('deletes a goal and returns { id, deleted: true }', async () => {
       const created = await request(app.getHttpServer())

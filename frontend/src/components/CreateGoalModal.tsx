@@ -1,11 +1,26 @@
 import { useEffect, useId, useRef, useState } from 'react';
-import type { CreateGoalRequest, GoalCategory } from '../types/api';
+import type {
+  CreateGoalRequest,
+  FinancialGoal,
+  GoalCategory,
+  UpdateGoalRequest,
+} from '../types/api';
+
+type Mode = 'create' | 'edit';
 
 interface CreateGoalModalProps {
   open: boolean;
-  profileId: string;
   onClose: () => void;
-  onSubmit: (input: CreateGoalRequest) => Promise<void> | void;
+  /**
+   * 'create' (default): builds a CreateGoalRequest including profileId.
+   * 'edit': builds an UpdateGoalRequest (profileId is not editable).
+   */
+  mode?: Mode;
+  /** Required when mode === 'create'. Ignored otherwise. */
+  profileId?: string;
+  /** Required when mode === 'edit'. Used to prefill fields. */
+  initial?: FinancialGoal;
+  onSubmit: (input: CreateGoalRequest | UpdateGoalRequest) => Promise<void> | void;
   submitting?: boolean;
   /** Pre-populated error from the parent (e.g. backend rejection). */
   externalError?: string | null;
@@ -29,10 +44,18 @@ const numberOrZero = (raw: string): number => {
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
 };
 
+const isoToDateInput = (iso: string): string => {
+  if (!iso) return '';
+  // Accept both date-only and full ISO strings.
+  return iso.length >= 10 ? iso.slice(0, 10) : iso;
+};
+
 export default function CreateGoalModal({
   open,
-  profileId,
   onClose,
+  mode = 'create',
+  profileId,
+  initial,
   onSubmit,
   submitting,
   externalError,
@@ -53,10 +76,26 @@ export default function CreateGoalModal({
   const [expectedReturn, setExpectedReturn] = useState(0.07);
   const [validation, setValidation] = useState<string | null>(null);
 
+  // Prefill on open in edit mode (and reset to defaults in create mode).
   useEffect(() => {
     if (!open) return;
     setValidation(null);
-  }, [open]);
+    if (mode === 'edit' && initial) {
+      setTitle(initial.title);
+      setCategory(initial.category);
+      setTargetAmount(initial.targetAmount);
+      setCurrentAmount(initial.currentAmount);
+      setTargetDate(isoToDateInput(initial.targetDate));
+      setExpectedReturn(initial.expectedReturn);
+    } else if (mode === 'create') {
+      setTitle('');
+      setCategory('CUSTOM');
+      setTargetAmount(0);
+      setCurrentAmount(0);
+      setTargetDate('');
+      setExpectedReturn(0.07);
+    }
+  }, [open, mode, initial]);
 
   useEffect(() => {
     if (!open) return;
@@ -92,7 +131,27 @@ export default function CreateGoalModal({
       return;
     }
     setValidation(null);
-    await onSubmit({
+
+    if (mode === 'edit') {
+      const payload: UpdateGoalRequest = {
+        title: title.trim(),
+        category,
+        targetAmount,
+        currentAmount,
+        targetDate,
+        expectedReturn,
+      };
+      await onSubmit(payload);
+      return;
+    }
+
+    if (!profileId) {
+      // Defensive — shouldn't happen if parent passes profileId in create mode.
+      setValidation('Cannot create a goal without a selected profile.');
+      return;
+    }
+
+    const payload: CreateGoalRequest = {
       profileId,
       title: title.trim(),
       category,
@@ -100,10 +159,14 @@ export default function CreateGoalModal({
       currentAmount,
       targetDate,
       expectedReturn,
-    });
+    };
+    await onSubmit(payload);
   };
 
   const errorMessage = validation ?? externalError ?? null;
+  const headingText = mode === 'edit' ? 'Edit financial goal' : 'Create a financial goal';
+  const submitLabel =
+    submitting ? 'Saving…' : mode === 'edit' ? 'Update goal' : 'Save Goal';
 
   return (
     <div
@@ -118,7 +181,7 @@ export default function CreateGoalModal({
     >
       <div className="modal-dialog" ref={dialogRef}>
         <header className="modal-dialog__header">
-          <h2 id={titleId}>Create a financial goal</h2>
+          <h2 id={titleId}>{headingText}</h2>
           <button
             type="button"
             className="btn btn--ghost btn--small"
@@ -227,7 +290,7 @@ export default function CreateGoalModal({
               Cancel
             </button>
             <button type="submit" className="btn btn--primary" disabled={submitting}>
-              {submitting ? 'Saving…' : 'Save Goal'}
+              {submitLabel}
             </button>
           </div>
         </form>
