@@ -55,6 +55,20 @@ describe('investorApi', () => {
       await investorApi.getProfile('abc');
       expect(lastCall().url.endsWith('/api/profiles/abc')).toBe(true);
     });
+
+    it('currencies() requests /api/currencies and returns the parsed body', async () => {
+      const body = {
+        supported: ['ILS', 'USD', 'EUR', 'GBP'],
+        default: 'ILS',
+        ratesInIls: { ILS: 1, USD: 3.7, EUR: 4.0, GBP: 4.7 },
+      };
+      fetchMock.mockResolvedValue(jsonResponse(body));
+
+      const result = await investorApi.currencies();
+
+      expect(lastCall().url.endsWith('/api/currencies')).toBe(true);
+      expect(result).toEqual(body);
+    });
   });
 
   describe('mutating endpoints', () => {
@@ -88,6 +102,35 @@ describe('investorApi', () => {
       const { url, init } = lastCall();
       expect(url.endsWith('/api/profiles')).toBe(true);
       expect(init.method).toBe('POST');
+    });
+
+    it('createProfile() forwards an explicit currency in the request body', async () => {
+      fetchMock.mockResolvedValue(jsonResponse({ id: 'x' }));
+
+      await investorApi.createProfile({
+        name: 'Pierre',
+        grossSalary: 1,
+        bankNet: 1,
+        currency: 'EUR',
+      });
+
+      const { init } = lastCall();
+      const body = JSON.parse(init.body as string);
+      expect(body.currency).toBe('EUR');
+    });
+
+    it('preview() forwards an explicit currency in the request body', async () => {
+      fetchMock.mockResolvedValue(jsonResponse({}));
+
+      await investorApi.preview({
+        grossSalary: 100,
+        bankNet: 68,
+        currency: 'GBP',
+      });
+
+      const { init } = lastCall();
+      const body = JSON.parse(init.body as string);
+      expect(body.currency).toBe('GBP');
     });
 
     it('deleteProfile() issues DELETE and returns the parsed body', async () => {

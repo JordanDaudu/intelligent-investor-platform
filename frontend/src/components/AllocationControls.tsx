@@ -1,3 +1,5 @@
+import { useCurrency } from '../currency/CurrencyContext';
+
 const SAVINGS_PCT = 10;
 const INVESTMENTS_PCT = 10;
 
@@ -8,13 +10,6 @@ interface AllocationControlsProps {
   onFixedCostsChange: (pct: number) => void;
   onGuiltFreeChange: (pct: number) => void;
 }
-
-const fmtCurrency = (n: number) =>
-  new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    maximumFractionDigits: 2,
-  }).format(n);
 
 function statusInfo(pctDiff: number): { label: string; cls: string } {
   if (Math.abs(pctDiff) < 0.01) return { label: 'Balanced ✓', cls: 'status--balanced' };
@@ -29,6 +24,7 @@ export default function AllocationControls({
   onFixedCostsChange,
   onGuiltFreeChange,
 }: AllocationControlsProps) {
+  const { format: fmtCurrency } = useCurrency();
   const totalPct = fixedCostsPercent + SAVINGS_PCT + INVESTMENTS_PCT + guiltFreeSpendingPercent;
   const pctDiff = totalPct - 100;
   const { label: statusLabel, cls: statusCls } = statusInfo(pctDiff);

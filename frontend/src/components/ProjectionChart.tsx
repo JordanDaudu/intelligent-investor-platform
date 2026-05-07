@@ -9,6 +9,7 @@ import {
   YAxis,
 } from 'recharts';
 import type { ProjectionPoint } from '../types/api';
+import { useCurrency } from '../currency/CurrencyContext';
 
 interface ProjectionChartProps {
   data: ProjectionPoint[];
@@ -17,19 +18,13 @@ interface ProjectionChartProps {
   title?: string;
 }
 
-const formatUsd = (n: number): string =>
-  new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    maximumFractionDigits: 0,
-  }).format(n);
-
 export default function ProjectionChart({
   data,
   annualReturnRate,
   years,
   title = 'Required projection — 15 years @ 7%',
 }: ProjectionChartProps) {
+  const { format: formatUsd } = useCurrency();
   return (
     <section className="card chart-card" data-testid="projection-chart">
       <header className="card__header">

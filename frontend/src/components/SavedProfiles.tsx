@@ -1,4 +1,4 @@
-import type { FinancialProfile } from '../types/api';
+import type { Currency, FinancialProfile } from '../types/api';
 
 interface SavedProfilesProps {
   profiles: FinancialProfile[];
@@ -9,12 +9,24 @@ interface SavedProfilesProps {
   onRefresh: () => void;
 }
 
-const formatUsd = (n: number): string =>
-  new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    maximumFractionDigits: 2,
-  }).format(n);
+/** Each saved profile carries its own currency, so format using THAT currency,
+ *  not the dashboard's active selection. */
+function formatInProfileCurrency(amount: number, code: Currency): string {
+  try {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: code,
+      currencyDisplay: 'narrowSymbol',
+      maximumFractionDigits: 2,
+    }).format(amount);
+  } catch {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: code,
+      maximumFractionDigits: 2,
+    }).format(amount);
+  }
+}
 
 const formatDate = (iso: string): string => {
   try {
@@ -55,7 +67,7 @@ export default function SavedProfiles({
               <div className="profile-list__main">
                 <div className="profile-list__name">{p.name}</div>
                 <div className="profile-list__meta muted">
-                  Bank net {formatUsd(p.bankNet)} · saved {formatDate(p.createdAt)}
+                  Bank net {formatInProfileCurrency(p.bankNet, p.currency)} · saved {formatDate(p.createdAt)}
                 </div>
               </div>
               <div className="profile-list__actions">

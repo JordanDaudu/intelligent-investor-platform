@@ -28,6 +28,13 @@ export class ProfileResponseDto {
   })
   guiltFreeSpendingPercent!: number | null;
 
+  @ApiProperty({
+    description: 'ISO 4217 currency code the profile values are stored in.',
+    example: 'ILS',
+    enum: ['ILS', 'USD', 'EUR', 'GBP'],
+  })
+  currency!: string;
+
   @ApiProperty({ description: 'ISO 8601 timestamp of when this profile was created', example: '2026-05-03T10:00:00.000Z' })
   createdAt!: string;
 

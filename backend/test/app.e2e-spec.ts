@@ -150,6 +150,51 @@ describe('Intelligent Investor API (e2e)', () => {
     });
   });
 
+  describe('GET /api/currencies', () => {
+    it('returns the supported list, default, and ILS-anchored rate table', async () => {
+      const res = await request(app.getHttpServer()).get('/api/currencies').expect(200);
+      expect(res.body.supported).toEqual(['ILS', 'USD', 'EUR', 'GBP']);
+      expect(res.body.default).toBe('ILS');
+      expect(res.body.ratesInIls).toEqual({
+        ILS: 1,
+        USD: 3.7,
+        EUR: 4.0,
+        GBP: 4.7,
+      });
+    });
+  });
+
+  describe('Currency on calculations', () => {
+    it('echoes the currency field back from /preview, defaulting to ILS', async () => {
+      const def = await request(app.getHttpServer())
+        .post('/api/calculations/preview')
+        .send({ grossSalary: 20000, bankNet: 13600 })
+        .expect(200);
+      expect(def.body.currency).toBe('ILS');
+
+      const explicit = await request(app.getHttpServer())
+        .post('/api/calculations/preview')
+        .send({ grossSalary: 20000, bankNet: 13600, currency: 'GBP' })
+        .expect(200);
+      expect(explicit.body.currency).toBe('GBP');
+    });
+
+    it('rejects an unsupported currency on /preview with 400', async () => {
+      await request(app.getHttpServer())
+        .post('/api/calculations/preview')
+        .send({ grossSalary: 20000, bankNet: 13600, currency: 'JPY' })
+        .expect(400);
+    });
+
+    it('echoes the currency field back from /monthly-contribution-projection', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/api/calculations/monthly-contribution-projection')
+        .send({ monthlyContribution: 68, currency: 'EUR' })
+        .expect(200);
+      expect(res.body.currency).toBe('EUR');
+    });
+  });
+
   describe('Profiles CRUD', () => {
     let createdId: string;
 
@@ -188,6 +233,45 @@ describe('Intelligent Investor API (e2e)', () => {
     it('DELETE /api/profiles/:id removes the profile', async () => {
       await request(app.getHttpServer()).delete(`/api/profiles/${createdId}`).expect(200);
       await request(app.getHttpServer()).get(`/api/profiles/${createdId}`).expect(404);
+    });
+  });
+
+  describe('Currency on profiles', () => {
+    afterEach(async () => {
+      await prisma.financialProfile.deleteMany();
+    });
+
+    it('defaults currency to ILS when not supplied on create', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/api/profiles')
+        .send({ name: 'Yael', grossSalary: 20000, bankNet: 13600 })
+        .expect(201);
+      expect(res.body.currency).toBe('ILS');
+    });
+
+    it('persists an explicit currency through create / get / list', async () => {
+      const created = await request(app.getHttpServer())
+        .post('/api/profiles')
+        .send({ name: 'Pierre', grossSalary: 5000, bankNet: 3400, currency: 'EUR' })
+        .expect(201);
+      expect(created.body.currency).toBe('EUR');
+
+      const fetched = await request(app.getHttpServer())
+        .get(`/api/profiles/${created.body.id}`)
+        .expect(200);
+      expect(fetched.body.currency).toBe('EUR');
+
+      const all = await request(app.getHttpServer()).get('/api/profiles').expect(200);
+      expect(
+        all.body.find((p: { id: string }) => p.id === created.body.id)?.currency,
+      ).toBe('EUR');
+    });
+
+    it('rejects an unsupported currency with 400', async () => {
+      await request(app.getHttpServer())
+        .post('/api/profiles')
+        .send({ name: 'Junko', grossSalary: 20000, bankNet: 13600, currency: 'JPY' })
+        .expect(400);
     });
   });
 });

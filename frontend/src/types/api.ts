@@ -1,3 +1,11 @@
+export type Currency = 'ILS' | 'USD' | 'EUR' | 'GBP';
+
+export interface CurrenciesResponse {
+  supported: Currency[];
+  default: Currency;
+  ratesInIls: Record<Currency, number>;
+}
+
 export interface BucketBreakdown {
   fixedCosts: number;
   savingsGoals: number;
@@ -21,6 +29,8 @@ export interface CalculationPreview {
   fixedCostsPercent: number;
   /** Guilt-Free Spending ratio used, as a percentage (e.g. 27.5 = 27.5%). */
   guiltFreeSpendingPercent: number;
+  /** Currency the input values were expressed in (echoed from request). */
+  currency: Currency;
 }
 
 export interface SpendingPlan {
@@ -40,6 +50,7 @@ export interface FinancialProfile {
   bankNet: number;
   fixedCostsPercent: number | null;
   guiltFreeSpendingPercent: number | null;
+  currency: Currency;
   createdAt: string;
   updatedAt: string;
   spendingPlan: SpendingPlan | null;
@@ -54,6 +65,7 @@ export interface MonthlyContributionProjectionRequest {
   monthlyContribution: number;
   annualReturnRate?: number;
   years?: number;
+  currency?: Currency;
 }
 
 export interface MonthlyContributionProjectionResponse {
@@ -61,4 +73,5 @@ export interface MonthlyContributionProjectionResponse {
   annualReturnRate: number;
   years: number;
   projection: ProjectionPoint[];
+  currency: Currency;
 }
