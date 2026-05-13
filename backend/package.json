@@ -64,7 +64,9 @@
       "profiles/profiles.service.ts",
       "profiles/profiles.controller.ts",
       "currencies/currencies.service.ts",
-      "currencies/currencies.controller.ts"
+      "currencies/currencies.controller.ts",
+      "goals/goals.service.ts",
+      "goals/goals.controller.ts"
     ],
     "coverageDirectory": "../coverage",
     "coverageThreshold": {

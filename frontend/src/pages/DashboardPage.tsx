@@ -6,6 +6,7 @@ import HealthStatusCard from '../components/HealthStatusCard';
 import InvestmentProjection from '../components/InvestmentProjection';
 import MonthlyContributionProjection from '../components/MonthlyContributionProjection';
 import AllocationControls from '../components/AllocationControls';
+import GoalsPage from './GoalsPage';
 import { investorApi } from '../api/investorApi';
 import type {
   BucketBreakdown as BucketsT,
@@ -260,6 +261,8 @@ export default function DashboardPage() {
         onDelete={onDeleteProfile}
         onRefresh={() => void refreshProfiles()}
       />
+
+      <GoalsPage profiles={profiles} profilesLoading={profilesLoading} />
     </div>
   );
 }

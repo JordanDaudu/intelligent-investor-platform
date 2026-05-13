@@ -66,14 +66,16 @@ jobs:
       - name: Apply database schema
         run: npx prisma db push --skip-generate
 
-      - name: Backend unit tests (calculations + profiles + currencies, with coverage)
+      - name: Backend unit tests (calculations + profiles + currencies + goals incl. update + summary, with coverage)
         # Covers:
         #   - calculations.service.spec.ts
         #   - calculations.controller.spec.ts
-        #   - profiles.controller.spec.ts
+        #   - profiles.controller.spec.ts        (incl. listGoals + goalsSummary delegation)
         #   - profiles.service.spec.ts
         #   - currencies.service.spec.ts
         #   - currencies.controller.spec.ts
+        #   - goals.service.spec.ts              (incl. update partial + summarizeForProfile aggregates)
+        #   - goals.controller.spec.ts           (incl. PATCH delegation)
         # Coverage thresholds are enforced in backend/package.json -> jest.coverageThreshold.
         run: npm run test:cov -- --runInBand
 
@@ -86,7 +88,10 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
-      - name: Backend integration tests (Supertest + Postgres)
+      - name: Backend integration tests (Supertest + Postgres — app + goals e2e incl. PATCH + summary)
+        # Runs every backend/test/*.e2e-spec.ts file:
+        #   - app.e2e-spec.ts        (health, calculations, profiles, currencies)
+        #   - goals.e2e-spec.ts      (financial goals CRUD + analysis + PATCH /api/goals/:id + GET /api/profiles/:id/goals/summary)
         run: npm run test:e2e
 
       - name: Backend build
@@ -116,12 +121,20 @@ jobs:
       - name: Frontend install
         run: npm install --no-audit --no-fund
 
-      - name: Frontend component + API wrapper + currency tests
+      - name: Frontend component + API wrapper + currency + goals tests
         # Covers:
-        #   - SalaryForm.test.tsx       (DashboardPage component flow + currency switch UX)
-        #   - investorApi.test.ts       (typed fetch wrapper, error mapping, 204 path, currencies endpoint)
-        #   - CurrencyContext.test.tsx  (provider, format, convert, fallback rates)
-        #   - CurrencySelector.test.tsx (dropdown rendering, default, onAfterChange callback)
+        #   - SalaryForm.test.tsx        (DashboardPage component flow + currency switch UX)
+        #   - investorApi.test.ts        (typed fetch wrapper, error mapping, 204 path, currencies endpoint)
+        #   - CurrencyContext.test.tsx   (provider, format, convert, fallback rates)
+        #   - CurrencySelector.test.tsx  (dropdown rendering, default, onAfterChange callback)
+        #   - GoalProgressRing.test.tsx  (clamp + percentage rendering + a11y)
+        #   - GoalForecastChart.test.tsx (Recharts wrapper renders)
+        #   - GoalCard.test.tsx          (renders title/amounts, status badge color, completion fallback,
+        #                                 Edit button delegation, Quick Add PATCH submission, validation)
+        #   - CreateGoalModal.test.tsx   (validation rules, create-mode submit payload, cancel handling,
+        #                                 edit-mode prefill + UpdateGoalRequest payload + button label)
+        #   - GoalsSummaryCard.test.tsx  (KPI rendering, status chip colors, hidden when zero goals)
+        #   - GoalsPage.test.tsx         (sort + category + status filter behavior, summary integration)
         run: npm test
 
       - name: Frontend build
