@@ -20,6 +20,7 @@ model FinancialProfile {
   updatedAt   DateTime @updatedAt
 
   spendingPlan SpendingPlan?
+  goals        FinancialGoal[]
 
   @@map("financial_profiles")
 }
@@ -43,4 +44,37 @@ model SpendingPlan {
   profile FinancialProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
 
   @@map("spending_plans")
+}
+
+enum GoalCategory {
+  EMERGENCY_FUND
+  RETIREMENT
+  APARTMENT
+  CAR
+  VACATION
+  EDUCATION
+  CUSTOM
+}
+
+model FinancialGoal {
+  id             String       @id @default(uuid())
+  profileId      String
+
+  title          String
+  category       GoalCategory
+
+  targetAmount   Decimal      @db.Decimal(14, 2)
+  currentAmount  Decimal      @db.Decimal(14, 2)
+
+  targetDate     DateTime
+
+  expectedReturn Decimal      @default(0.07) @db.Decimal(6, 4)
+
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  profile FinancialProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@index([profileId])
+  @@map("financial_goals")
 }
