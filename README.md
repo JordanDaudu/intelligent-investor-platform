@@ -1,8 +1,29 @@
+<p align="center">
+  <img src="docs/assets/Intelligent-Investor-Banner.png" alt="Intelligent Investor Platform banner" width="100%" />
+</p>
+
 # Intelligent Investor Platform
 
 A full-stack DevOps final assignment that helps users plan their monthly cash flow with the **Common Sense Spending** strategy and visualize a 15-year compound-growth projection on the active-investments slice.
 
 The project is intentionally heavy on DevOps practices — Docker, Git Flow, CI/CD, automated tests, health checks, environment variables, and documentation — because that's what the assignment is graded on.
+
+<p align="center">
+  <img src="docs/assets/Intelligent-Investor-Local-Docker-Architecture.png" alt="Intelligent Investor Platform banner" width="100%" />
+</p>
+
+## Quick links
+
+- [Features](#features)
+- [Tech stack](#tech-stack)
+- [Architecture](#architecture)
+- [Calculation formulas](#calculation-formulas)
+- [API endpoints](#api-endpoints)
+- [Environment variables](#environment-variables)
+- [Run with Docker](#universal-docker-run-options)
+- [Run tests locally](#running-tests-locally)
+- [CI/CD](#cicd)
+- [Git Flow Strategy](#git-flow-strategy)
 
 ---
 
@@ -15,6 +36,7 @@ The project is intentionally heavy on DevOps practices — Docker, Git Flow, CI/
 - DevOps health-status card calling `GET /health` (backend + database) plus the build-time environment label.
 - Dark/light mode toggle, persisted in `localStorage`.
 - Optional **Scenario Lab** — sliders for return rate / horizon / investment amount override (same single-amount formula as the required chart).
+- **Currency switcher** — pick ILS (default), USD, EUR, or GBP from the top-right selector. Typed values live-convert across currencies; saved profiles remember the currency they were created in. Hardcoded ILS-anchored rates served by the backend (`GET /api/currencies`).
 - Cypress E2E + Vitest component tests + Jest unit and integration tests.
 
 ---
@@ -60,6 +82,7 @@ See `docs/architecture.md` for the full diagram and data flow.
 │   ├── src/
 │   │   ├── calculations/     Pure financial formulas (unit tested)
 │   │   ├── profiles/         Persisted profiles + spending plans
+│   │   ├── currencies/       Currency rate table + /api/currencies endpoint
 │   │   ├── health/           DB-aware /health endpoint
 │   │   ├── prisma/           Prisma module + service (singleton)
 │   │   └── config/           Env validation
@@ -67,7 +90,8 @@ See `docs/architecture.md` for the full diagram and data flow.
 ├── frontend/                 React + Vite frontend
 │   ├── src/
 │   │   ├── api/              Typed fetch wrapper
-│   │   ├── components/       Layout, SalaryForm, BucketCard, etc.
+│   │   ├── components/       Layout, SalaryForm, BucketCard, CurrencySelector, etc.
+│   │   ├── currency/         CurrencyProvider context (rates, format, convert)
 │   │   ├── pages/            DashboardPage
 │   │   └── tests/            Vitest + RTL setup and tests
 │   └── cypress/e2e/          Cypress happy-path test
@@ -132,9 +156,12 @@ This assumes the Active Investments amount is contributed **every month**. With 
 
 ## API endpoints
 
+Swagger/OpenAPI documentation is available locally at `http://localhost:8000/api/docs` after the backend is running.
+
 | Method | Path                                                | Purpose                                             |
 |--------|-----------------------------------------------------|-----------------------------------------------------|
 | GET    | `/health`                                           | 200 only when backend + DB are reachable            |
+| GET    | `/api/currencies`                                   | Supported codes, default, ILS-anchored rate table   |
 | POST   | `/api/calculations/preview`                         | Stateless buckets + 15-year projection              |
 | POST   | `/api/calculations/monthly-contribution-projection` | Extra-credit: future value of monthly contributions |
 | POST   | `/api/profiles`                                     | Save profile + computed plan                        |
@@ -146,7 +173,7 @@ This assumes the Active Investments amount is contributed **every month**. With 
 
 ```jsonc
 // request
-{ "grossSalary": 20000, "bankNet": 13600 }
+{ "grossSalary": 20000, "bankNet": 13600, "currency": "ILS" }
 
 // response
 {
@@ -164,9 +191,24 @@ This assumes the Active Investments amount is contributed **every month**. With 
     /* ... 15 entries total ... */
   ],
   "annualReturnRate": 0.07,
-  "projectionYears": 15
+  "projectionYears": 15,
+  "fixedCostsPercent": 55,
+  "guiltFreeSpendingPercent": 27.5,
+  "currency": "ILS"
 }
 ```
+
+`GET /api/currencies` example response:
+
+```jsonc
+{
+  "supported": ["ILS", "USD", "EUR", "GBP"],
+  "default": "ILS",
+  "ratesInIls": { "ILS": 1, "USD": 3.7, "EUR": 4.0, "GBP": 4.7 }
+}
+```
+
+The frontend caches this on app mount and uses it for live display conversion. The backend never converts on storage — values are kept in the profile's own currency, and percentages are unit-invariant so the bucket math works in any currency. Saving a profile records the active currency on the row (`currency` column on `financial_profiles`); loading a profile restores it as the active dashboard currency.
 
 ---
 
@@ -182,7 +224,7 @@ Copy `.env.example` → `.env` and adjust values as needed.
 | `POSTGRES_PORT`      | `5432`                                                                                | Host port for the Postgres container     |
 | `DATABASE_URL`       | `postgresql://investor_user:investor_password@postgres:5432/investor_db`             | Backend Prisma connection URL            |
 | `BACKEND_PORT`       | `8000`                                                                                | NestJS HTTP port                         |
-| `FRONTEND_PORT`      | `5000` (Replit dev) / `5173` (local Docker)                                           | Host port the SPA is served on           |
+| `FRONTEND_PORT`      | `5173`                                           | Host port the SPA is served on           |
 | `VITE_API_BASE_URL`  | `http://localhost:8000`                                                              | Public API base URL the frontend calls   |
 | `NODE_ENV`           | `development`                                                                         | Backend runtime mode (validation, logs)  |
 
@@ -456,6 +498,36 @@ Open this URL in your browser:
 ```text
 http://localhost:5173
 ```
+
+---
+
+## Running Tests Locally
+
+Run the full local test suite with the helper script:
+
+```bash
+./scripts/run-tests.sh
+```
+
+Or run each layer manually:
+
+```bash
+# Backend unit + integration tests
+cd backend
+npm install
+npm run test
+npm run test:e2e
+
+# Frontend component tests
+cd ../frontend
+npm install
+npm run test
+
+# Cypress end-to-end tests
+npm run cypress:run
+```
+
+The CI pipeline runs these tests automatically on pushes and pull requests.
 
 ---
 
@@ -780,6 +852,23 @@ See `docs/ci-cd.md` for full details.
 ### Staging deployment
 
 On push to `stage`, CI runs `staging-deployment` (a placeholder) and then `staging-health-check`, which polls `${STAGING_API_URL}/health` until it returns 200 (or warns and exits if the URL secret isn't set). Wire `scripts/deploy-staging.sh` to your real hosting provider when ready.
+
+### How to trigger deployment
+
+Deployment is branch-driven through GitHub Actions:
+
+```bash
+# feature work starts from dev
+git checkout dev
+git checkout -b feature/my-change
+
+# after review, merge feature/* into dev
+# after dev is stable, open a PR from dev into stage
+# merging into stage triggers the staging deployment job
+# merging stage into main triggers the production deployment placeholder
+```
+
+Required deployment secrets are documented in `docs/ci-cd.md`.
 
 ---
 

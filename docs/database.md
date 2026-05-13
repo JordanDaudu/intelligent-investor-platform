@@ -7,20 +7,24 @@ PostgreSQL 16 managed via Prisma (`backend/prisma/schema.prisma`).
 ```
 financial_profiles                         spending_plans
 ─────────────────────                       ─────────────────────────
-id           uuid pk                        id                   uuid pk
-name         text                           profile_id           uuid unique fk → financial_profiles.id  ON DELETE CASCADE
-gross_salary numeric(14,2)                  fixed_costs          numeric(14,2)
-bank_net     numeric(14,2)                  savings_goals        numeric(14,2)
-created_at   timestamptz default now()      active_investments   numeric(14,2)
-updated_at   timestamptz                    guilt_free_spending  numeric(14,2)
-                                            annual_return_rate   numeric(6,4) default 0.07
-                                            projection_years     int          default 15
-                                            projection_data      jsonb          /* [{year, value}] */
-                                            created_at           timestamptz default now()
+id                          uuid pk         id                   uuid pk
+name                        text            profile_id           uuid unique fk → financial_profiles.id  ON DELETE CASCADE
+gross_salary                numeric(14,2)   fixed_costs          numeric(14,2)
+bank_net                    numeric(14,2)   savings_goals        numeric(14,2)
+fixed_costs_percent         double prec     active_investments   numeric(14,2)
+guilt_free_spending_percent double prec     guilt_free_spending  numeric(14,2)
+currency                    varchar(3)      annual_return_rate   numeric(6,4) default 0.07
+                            default 'ILS'   projection_years     int          default 15
+created_at                  timestamptz     projection_data      jsonb          /* [{year, value}] */
+updated_at                  timestamptz     created_at           timestamptz default now()
                                             updated_at           timestamptz
 ```
 
 A `FinancialProfile` has at most one `SpendingPlan`. Deleting a profile cascades into its plan.
+
+### `currency` column
+
+Added by migration `20260507120000_add_currency_to_profile`. Stores an ISO 4217 code (`ILS` / `USD` / `EUR` / `GBP`), default `'ILS'`. The backend never converts amounts on storage — `gross_salary` and `bank_net` are kept in whichever currency the user had active when the profile was saved. The frontend converts on display using the rate table from `GET /api/currencies`.
 
 ## projectionData shape
 
