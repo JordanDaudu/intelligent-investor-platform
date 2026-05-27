@@ -4,12 +4,16 @@
 
 # Intelligent Investor Platform
 
-A full-stack DevOps final assignment that helps users plan their monthly cash flow with the **Common Sense Spending** strategy and visualize a 15-year compound-growth projection on the active-investments slice.
+A full-stack personal finance and DevOps project that helps users plan monthly cash flow using the **Common Sense Spending** strategy and visualize long-term investment growth over 15 years.
 
-The project is intentionally heavy on DevOps practices — Docker, Git Flow, CI/CD, automated tests, health checks, environment variables, and documentation — because that's what the assignment is graded on.
+Beyond the finance dashboard itself, the project focuses on building a complete production-style workflow: Dockerized services, Git Flow, CI/CD, automated tests, health checks, environment-based configuration, and clear deployment documentation.
 
 <p align="center">
-  <img src="docs/assets/Intelligent-Investor-Local-Docker-Architecture.png" alt="Intelligent Investor Platform banner" width="100%" />
+  <img src="docs/assets/Intelligent-Investor-Local-Docker-Architecture.png" alt="Intelligent Investor local Docker architecture" width="100%" />
+</p>
+
+<p align="center">
+  <img src="docs/assets/Intelligent-Investor-Cloud-Production-Architecture.png" alt="Intelligent Investor cloud production architecture" width="100%" />
 </p>
 
 ## Quick links
@@ -17,6 +21,7 @@ The project is intentionally heavy on DevOps practices — Docker, Git Flow, CI/
 - [Features](#features)
 - [Tech stack](#tech-stack)
 - [Architecture](#architecture)
+- [Cloud production deployment](#cloud-production-deployment)
 - [Calculation formulas](#calculation-formulas)
 - [API endpoints](#api-endpoints)
 - [Environment variables](#environment-variables)
@@ -35,7 +40,7 @@ The project is intentionally heavy on DevOps practices — Docker, Git Flow, CI/
 - Save profiles to PostgreSQL via the API; reload them across browser sessions.
 - DevOps health-status card calling `GET /health` (backend + database) plus the build-time environment label.
 - Dark/light mode toggle, persisted in `localStorage`.
-- Optional **Scenario Lab** — sliders for return rate / horizon / investment amount override (same single-amount formula as the required chart).
+- Optional **Scenario Lab** — sliders for return rate, time horizon, and investment amount override using the same single-amount projection formula.
 - **Currency switcher** — pick ILS (default), USD, EUR, or GBP from the top-right selector. Typed values live-convert across currencies; saved profiles remember the currency they were created in. Hardcoded ILS-anchored rates served by the backend (`GET /api/currencies`).
 - Cypress E2E + Vitest component tests + Jest unit and integration tests.
 
@@ -47,25 +52,50 @@ The project is intentionally heavy on DevOps practices — Docker, Git Flow, CI/
 |----------|----------------------------------------------------------------------|
 | Frontend | React 18, TypeScript, Vite, Recharts, Vitest + RTL, Cypress         |
 | Backend  | NestJS 10, TypeScript, Prisma 5, class-validator, Jest + Supertest  |
-| Database | PostgreSQL 16 (named Docker volume `intelligent_investor_postgres_data`) |
+| Database | Local: PostgreSQL 16 Docker volume; Production: Neon PostgreSQL |
 | DevOps   | Docker + Docker Compose, GitHub Actions, Bash scripts                |
 
 ---
 
 ## Architecture
 
+### Local Docker architecture
+
+<p align="center">
+  <img src="docs/assets/Intelligent-Investor-Local-Docker-Architecture.png" alt="Intelligent Investor local Docker architecture" width="100%" />
+</p>
+
+Local development runs with Docker Compose:
+
+```text
+Browser
+  ↓
+React + Vite frontend container
+  ↓
+NestJS backend container
+  ↓
+PostgreSQL Docker container
 ```
-┌──────────────┐   HTTP    ┌──────────────┐   Prisma   ┌──────────────┐
-│  React + Vite │ ───────▶ │  NestJS API   │ ────────▶ │  PostgreSQL   │
-│   (port 80)   │          │  (port 8000)  │           │  (port 5432)  │
-└──────────────┘          └──────────────┘            └──────────────┘
-        ▲                          │                         ▲
-        │                          ▼                         │
-        │                  ┌──────────────┐                  │
-        └─── /health ──────│  Health      │── ping ──────────┘
-                           │  module      │
-                           └──────────────┘
+
+### Cloud production architecture
+
+<p align="center">
+  <img src="docs/assets/Intelligent-Investor-Cloud-Production-Architecture.png" alt="Intelligent Investor cloud production architecture" width="100%" />
+</p>
+
+Production runs on managed cloud services:
+
+```text
+Browser
+  ↓
+Google Cloud Run frontend
+  ↓
+Google Cloud Run backend
+  ↓
+Neon PostgreSQL
 ```
+
+Google Secret Manager stores the production `DATABASE_URL` and injects it into the backend Cloud Run service. The frontend is built with the backend Cloud Run URL through `VITE_API_BASE_URL`.
 
 The backend follows clean architecture: **Controller → Service → Prisma**. All financial formulas live inside `CalculationsService`; controllers contain zero math.
 
@@ -119,15 +149,15 @@ All bucket math is based on **bank net (take-home)**, not gross salary.
 
 Bank-net estimator: `bankNet = grossSalary × 0.68`.
 
-Required 15-year projection (one point per year, n = 1..15):
+Default 15-year projection (one point per year, n = 1..15):
 
 ```
 value(n) = activeInvestments × (1 + 0.07)^n
 ```
 
-The Scenario Lab can vary the rate and horizon, but **does not replace** the required default chart.
+The Scenario Lab can vary the rate and horizon while keeping the default projection available for comparison.
 
-### Investment Projection (required + optional scenario)
+### Investment Projection
 
 Uses the single-amount compound formula for years 1 through the selected horizon:
 
@@ -135,12 +165,12 @@ Uses the single-amount compound formula for years 1 through the selected horizon
 value(n) = investmentAmount × (1 + annualReturn)^n
 ```
 
-Default settings match the **required assignment projection**:
+Default settings use the baseline projection:
 - `annualReturn = 7%`
 - `years = 15`
 - `investmentAmount = Active Investments bucket`
 
-When at default settings the chart shows an **"Assignment Default"** badge. Moving the sliders enters optional **"Scenario Mode"**, and a "Reset to assignment default" button restores the defaults. The chart calculation runs locally in the browser (same formula as the backend).
+When the chart uses the baseline settings, it shows a **"Default Projection"** badge. Moving the sliders enters **"Scenario Mode"**, and the reset button restores the original values. The chart calculation runs locally in the browser using the same formula as the backend.
 
 ### Extra-credit monthly contribution projection
 
@@ -150,7 +180,7 @@ Uses the future value of recurring monthly contributions (annuity formula):
 FV(y) = monthlyContribution × ((1 + r/12)^(y×12) − 1) / (r/12)
 ```
 
-This assumes the Active Investments amount is contributed **every month**. With $68/month at 7% over 15 years, the projected value is approximately **$21,553** — far larger than the required single-amount projection (~$188). The backend endpoint `POST /api/calculations/monthly-contribution-projection` powers this chart; sliders for annual return and time horizon pass their values directly to the API.
+This assumes the Active Investments amount is contributed **every month**. With $68/month at 7% over 15 years, the projected value is approximately **$21,553**, which shows how recurring contributions can grow much faster than a one-time investment. The backend endpoint `POST /api/calculations/monthly-contribution-projection` powers this chart; sliders for annual return and time horizon pass their values directly to the API.
 
 ---
 
@@ -616,27 +646,100 @@ linux/arm64
 
 ---
 
-## Production Deployment Note
+## Cloud Production Deployment
 
-The published frontend image currently points to:
+The production deployment uses Google Cloud Run for the frontend and backend, Google Secret Manager for the backend `DATABASE_URL`, and Neon PostgreSQL for persistent data.
 
 ```text
-http://localhost:8000
+Frontend: Google Cloud Run
+Backend:  Google Cloud Run
+Secrets:  Google Secret Manager
+Database: Neon PostgreSQL
 ```
 
-This is correct for local usage on macOS, Windows, or Linux.
+Current production/demo URLs:
 
-For a real public server deployment, rebuild the frontend image with the server's public backend URL:
+```text
+Frontend: https://intelligent-investor-frontend-qlaumxyhrq-ew.a.run.app
+Backend:  https://intelligent-investor-backend-177992949217.europe-west1.run.app
+Health:   https://intelligent-investor-backend-177992949217.europe-west1.run.app/health
+```
+
+### Production backend
+
+The backend Cloud Run service reads `DATABASE_URL` from Google Secret Manager.
+
+Required runtime configuration:
+
+```text
+NODE_ENV=production
+BACKEND_HOST=0.0.0.0
+BACKEND_PORT=8000
+DATABASE_URL=<stored in Google Secret Manager>
+```
+
+Deployment shape:
 
 ```bash
-docker buildx build \
-  --platform linux/amd64,linux/arm64 \
-  --build-arg VITE_API_BASE_URL=http://YOUR_SERVER_IP_OR_DOMAIN:8000 \
-  --provenance=false \
-  -t jordandaudu/intelligent-investor-frontend:prod \
-  --push \
+gcloud run services update intelligent-investor-backend \
+  --region=europe-west1 \
+  --service-account=intelligent-investor-run@PROJECT_ID.iam.gserviceaccount.com \
+  --clear-cloudsql-instances \
+  --set-secrets="DATABASE_URL=intelligent-investor-database-url:latest" \
+  --set-env-vars="NODE_ENV=production,BACKEND_HOST=0.0.0.0,BACKEND_PORT=8000" \
+  --port=8000
+```
+
+The backend health endpoint verifies both the API and database connection:
+
+```bash
+curl https://intelligent-investor-backend-177992949217.europe-west1.run.app/health
+```
+
+Expected response:
+
+```json
+{
+  "status": "ok",
+  "database": "connected"
+}
+```
+
+### Production frontend
+
+The frontend is a Vite app, so the public backend URL must be provided at build time:
+
+```bash
+docker build \
+  --build-arg VITE_API_BASE_URL=https://intelligent-investor-backend-177992949217.europe-west1.run.app \
+  -t europe-west1-docker.pkg.dev/PROJECT_ID/intelligent-investor/frontend:latest \
   ./frontend
 ```
+
+Then deploy the image to Cloud Run:
+
+```bash
+gcloud run deploy intelligent-investor-frontend \
+  --image=europe-west1-docker.pkg.dev/PROJECT_ID/intelligent-investor/frontend:latest \
+  --region=europe-west1 \
+  --allow-unauthenticated \
+  --port=80 \
+  --memory=256Mi \
+  --cpu=1 \
+  --min-instances=0 \
+  --max-instances=2
+```
+
+### Production database
+
+Production uses Neon PostgreSQL instead of the local Docker PostgreSQL container.
+
+Important notes:
+
+- The Neon connection string is stored only in Google Secret Manager.
+- The connection string is never committed to Git.
+- Prisma schema changes should be applied carefully before redeploying the backend.
+- Local Docker data and Neon production data are separate databases.
 
 ---
 
@@ -843,15 +946,15 @@ Pipeline file: `.github/workflows/ci.yml`. Stages:
 3. **Docker build validation** (PRs into dev/stage/main and pushes to those)
 4. **Cypress E2E** — Docker Compose stack + `/health` wait + `cypress run` + teardown (same trigger as Docker validation)
 5. **Staging deployment** + **Staging health check** (push to `stage`)
-6. **Production deployment placeholder** (push to `main`)
+6. **Production deployment hook** (push to `main`)
 
-Deploy jobs are conditional on real secrets (`STAGING_DEPLOY_HOST`, `STAGING_API_URL`, `PROD_DEPLOY_HOST`). Without them, the pipeline still passes — perfect for a graded scaffold.
+Deploy jobs are conditional on real secrets (`STAGING_DEPLOY_HOST`, `STAGING_API_URL`, `PROD_DEPLOY_HOST`). Without those secrets, the pipeline still validates the project without attempting a real deployment.
 
 See `docs/ci-cd.md` for full details.
 
 ### Staging deployment
 
-On push to `stage`, CI runs `staging-deployment` (a placeholder) and then `staging-health-check`, which polls `${STAGING_API_URL}/health` until it returns 200 (or warns and exits if the URL secret isn't set). Wire `scripts/deploy-staging.sh` to your real hosting provider when ready.
+On push to `stage`, CI runs `staging-deployment` and then `staging-health-check`, which polls `${STAGING_API_URL}/health` until it returns 200. If the URL secret is not configured, the job exits safely with a warning. `scripts/deploy-staging.sh` can be connected to the hosting provider used by the project.
 
 ### How to trigger deployment
 
@@ -865,7 +968,7 @@ git checkout -b feature/my-change
 # after review, merge feature/* into dev
 # after dev is stable, open a PR from dev into stage
 # merging into stage triggers the staging deployment job
-# merging stage into main triggers the production deployment placeholder
+# merging stage into main triggers the production deployment hook
 ```
 
 Required deployment secrets are documented in `docs/ci-cd.md`.
@@ -936,4 +1039,4 @@ A concise walkthrough script lives in `docs/presentation-script.md`. It covers e
 
 ## License
 
-MIT — for educational purposes (final assignment).
+MIT — for educational and portfolio use.
