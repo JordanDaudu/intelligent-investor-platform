@@ -16,6 +16,10 @@ Beyond the finance dashboard itself, the project focuses on building a complete 
   <img src="docs/assets/Intelligent-Investor-Cloud-Production-Architecture.png" alt="Intelligent Investor cloud production architecture" width="100%" />
 </p>
 
+<p align="center">
+  <img src="docs/assets/Intelligent-Investor-Cloud-Deployment-Pipeline.png" alt="Intelligent Investor cloud deployment pipeline" width="100%" />
+</p>
+
 ## Quick links
 
 - [Features](#features)
@@ -53,7 +57,7 @@ Beyond the finance dashboard itself, the project focuses on building a complete 
 | Frontend | React 18, TypeScript, Vite, Recharts, Vitest + RTL, Cypress         |
 | Backend  | NestJS 10, TypeScript, Prisma 5, class-validator, Jest + Supertest  |
 | Database | Local: PostgreSQL 16 Docker volume; Production: Neon PostgreSQL |
-| DevOps   | Docker + Docker Compose, GitHub Actions, Bash scripts                |
+| DevOps   | Docker + Docker Compose, GitHub Actions, Cloud Build, Artifact Registry, Cloud Deploy, Bash scripts |
 
 ---
 
@@ -97,6 +101,28 @@ Neon PostgreSQL
 
 Google Secret Manager stores the production `DATABASE_URL` and injects it into the backend Cloud Run service. The frontend is built with the backend Cloud Run URL through `VITE_API_BASE_URL`.
 
+### Cloud deployment pipeline
+
+<p align="center">
+  <img src="docs/assets/Intelligent-Investor-Cloud-Deployment-Pipeline.png" alt="Intelligent Investor cloud deployment pipeline" width="100%" />
+</p>
+
+Production delivery is handled through Google Cloud's managed deployment flow:
+
+```text
+Source code
+  ↓
+Cloud Build
+  ↓
+Artifact Registry
+  ↓
+Cloud Deploy
+  ↓
+Cloud Run frontend + backend
+```
+
+Cloud Build creates versioned Docker images for the frontend and backend. Artifact Registry stores those images. Cloud Deploy creates releases and rollouts that update the Cloud Run services in a controlled way.
+
 The backend follows clean architecture: **Controller → Service → Prisma**. All financial formulas live inside `CalculationsService`; controllers contain zero math.
 
 See `docs/architecture.md` for the full diagram and data flow.
@@ -126,6 +152,7 @@ See `docs/architecture.md` for the full diagram and data flow.
 │   │   └── tests/            Vitest + RTL setup and tests
 │   └── cypress/e2e/          Cypress happy-path test
 ├── docs/                     Architecture, DB, Docker, CI/CD, deployment, testing, Git Flow, demo script
+├── deploy/cloud-deploy/      Cloud Deploy pipelines, Skaffold files, and Cloud Run service manifests
 ├── scripts/                  setup-dev / run-tests / health-check / deploy-staging
 ├── .github/workflows/ci.yml  Pipeline
 ├── docker-compose.yml        Local stack (postgres + backend + frontend)
@@ -648,13 +675,15 @@ linux/arm64
 
 ## Cloud Production Deployment
 
-The production deployment uses Google Cloud Run for the frontend and backend, Google Secret Manager for the backend `DATABASE_URL`, and Neon PostgreSQL for persistent data.
+The production deployment uses Google Cloud Run for the frontend and backend, Google Secret Manager for the backend `DATABASE_URL`, Neon PostgreSQL for persistent data, and Cloud Deploy for release/rollout management.
 
 ```text
-Frontend: Google Cloud Run
-Backend:  Google Cloud Run
-Secrets:  Google Secret Manager
-Database: Neon PostgreSQL
+Frontend:   Google Cloud Run
+Backend:    Google Cloud Run
+Images:     Artifact Registry
+Deployment: Cloud Deploy
+Secrets:    Google Secret Manager
+Database:   Neon PostgreSQL
 ```
 
 Current production/demo URLs:
@@ -663,6 +692,58 @@ Current production/demo URLs:
 Frontend: https://intelligent-investor-frontend-qlaumxyhrq-ew.a.run.app
 Backend:  https://intelligent-investor-backend-177992949217.europe-west1.run.app
 Health:   https://intelligent-investor-backend-177992949217.europe-west1.run.app/health
+```
+
+### Cloud Deploy release flow
+
+Production images are built as versioned container images and stored in Artifact Registry.
+
+```text
+europe-west1-docker.pkg.dev/PROJECT_ID/intelligent-investor/frontend:<version>
+europe-west1-docker.pkg.dev/PROJECT_ID/intelligent-investor/backend:<version>
+```
+
+Cloud Deploy manages the production rollouts for both services:
+
+```text
+Frontend pipeline: intelligent-investor-frontend
+Backend pipeline:  intelligent-investor-backend
+Target region:     europe-west1
+```
+
+A typical release flow is:
+
+```bash
+# Build and push images through Cloud Build
+gcloud builds submit . --config=/tmp/frontend-cloudbuild.yaml
+gcloud builds submit . --config=/tmp/backend-cloudbuild.yaml
+
+# Create Cloud Deploy releases
+gcloud deploy releases create frontend-<version> \
+  --delivery-pipeline=intelligent-investor-frontend \
+  --region=europe-west1 \
+  --source=deploy/cloud-deploy/frontend \
+  --images=frontend-image=europe-west1-docker.pkg.dev/PROJECT_ID/intelligent-investor/frontend:<version>
+
+gcloud deploy releases create backend-<version> \
+  --delivery-pipeline=intelligent-investor-backend \
+  --region=europe-west1 \
+  --source=deploy/cloud-deploy/backend \
+  --images=backend-image=europe-west1-docker.pkg.dev/PROJECT_ID/intelligent-investor/backend:<version>
+```
+
+Rollout status can be checked from the Google Cloud Console or with:
+
+```bash
+gcloud deploy rollouts list \
+  --delivery-pipeline=intelligent-investor-frontend \
+  --release=frontend-<version> \
+  --region=europe-west1
+
+gcloud deploy rollouts list \
+  --delivery-pipeline=intelligent-investor-backend \
+  --release=backend-<version> \
+  --region=europe-west1
 ```
 
 ### Production backend
@@ -707,7 +788,7 @@ Expected response:
 
 ### Production frontend
 
-The frontend is a Vite app, so the public backend URL must be provided at build time:
+The frontend is a Vite app, so the public backend URL must be provided at build time. The resulting image is pushed to Artifact Registry and rolled out through Cloud Deploy:
 
 ```bash
 docker build \
@@ -716,19 +797,17 @@ docker build \
   ./frontend
 ```
 
-Then deploy the image to Cloud Run:
+The image is then released through Cloud Deploy:
 
 ```bash
-gcloud run deploy intelligent-investor-frontend \
-  --image=europe-west1-docker.pkg.dev/PROJECT_ID/intelligent-investor/frontend:latest \
+gcloud deploy releases create frontend-<version> \
+  --delivery-pipeline=intelligent-investor-frontend \
   --region=europe-west1 \
-  --allow-unauthenticated \
-  --port=80 \
-  --memory=256Mi \
-  --cpu=1 \
-  --min-instances=0 \
-  --max-instances=2
+  --source=deploy/cloud-deploy/frontend \
+  --images=frontend-image=europe-west1-docker.pkg.dev/PROJECT_ID/intelligent-investor/frontend:<version>
 ```
+
+For quick manual testing, the same image can also be deployed directly with `gcloud run deploy`, but the production workflow uses Cloud Deploy so releases and rollouts are tracked.
 
 ### Production database
 
@@ -944,11 +1023,17 @@ Pipeline file: `.github/workflows/ci.yml`. Stages:
 1. **Backend install** → **Backend unit tests** → **Backend integration tests** → **Backend build**
 2. **Frontend install** → **Frontend component tests** → **Frontend build**
 3. **Docker build validation** (PRs into dev/stage/main and pushes to those)
-4. **Cypress E2E** — Docker Compose stack + `/health` wait + `cypress run` + teardown (same trigger as Docker validation)
+4. **Cypress E2E** — Docker Compose stack + `/health` wait + `cypress run` + teardown
 5. **Staging deployment** + **Staging health check** (push to `stage`)
 6. **Production deployment hook** (push to `main`)
 
-Deploy jobs are conditional on real secrets (`STAGING_DEPLOY_HOST`, `STAGING_API_URL`, `PROD_DEPLOY_HOST`). Without those secrets, the pipeline still validates the project without attempting a real deployment.
+The current production cloud flow uses Google Cloud services for delivery:
+
+```text
+Cloud Build → Artifact Registry → Cloud Deploy → Cloud Run
+```
+
+Cloud Deploy tracks frontend and backend releases separately, which makes it easy to see rollout status, active revisions, and deployment history from the Google Cloud Console.
 
 See `docs/ci-cd.md` for full details.
 
