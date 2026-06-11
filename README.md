@@ -4,20 +4,12 @@
 
 # Intelligent Investor Platform
 
-A full-stack personal finance and DevOps project that helps users plan monthly cash flow using the **Common Sense Spending** strategy and visualize long-term investment growth over 15 years.
+A full-stack DevOps final assignment that helps users plan their monthly cash flow with the **Common Sense Spending** strategy and visualize a 15-year compound-growth projection on the active-investments slice.
 
-Beyond the finance dashboard itself, the project focuses on building a complete production-style workflow: Dockerized services, Git Flow, CI/CD, automated tests, health checks, environment-based configuration, and clear deployment documentation.
-
-<p align="center">
-  <img src="docs/assets/Intelligent-Investor-Local-Docker-Architecture.png" alt="Intelligent Investor local Docker architecture" width="100%" />
-</p>
+The project is intentionally heavy on DevOps practices — Docker, Git Flow, CI/CD, automated tests, health checks, environment variables, and documentation — because that's what the assignment is graded on.
 
 <p align="center">
-  <img src="docs/assets/Intelligent-Investor-Cloud-Production-Architecture.png" alt="Intelligent Investor cloud production architecture" width="100%" />
-</p>
-
-<p align="center">
-  <img src="docs/assets/Intelligent-Investor-Cloud-Deployment-Pipeline.png" alt="Intelligent Investor cloud deployment pipeline" width="100%" />
+  <img src="docs/assets/Intelligent-Investor-Local-Docker-Architecture.png" alt="Intelligent Investor Platform banner" width="100%" />
 </p>
 
 ## Quick links
@@ -25,7 +17,6 @@ Beyond the finance dashboard itself, the project focuses on building a complete 
 - [Features](#features)
 - [Tech stack](#tech-stack)
 - [Architecture](#architecture)
-- [Cloud production deployment](#cloud-production-deployment)
 - [Calculation formulas](#calculation-formulas)
 - [API endpoints](#api-endpoints)
 - [Environment variables](#environment-variables)
@@ -44,7 +35,7 @@ Beyond the finance dashboard itself, the project focuses on building a complete 
 - Save profiles to PostgreSQL via the API; reload them across browser sessions.
 - DevOps health-status card calling `GET /health` (backend + database) plus the build-time environment label.
 - Dark/light mode toggle, persisted in `localStorage`.
-- Optional **Scenario Lab** — sliders for return rate, time horizon, and investment amount override using the same single-amount projection formula.
+- Optional **Scenario Lab** — sliders for return rate / horizon / investment amount override (same single-amount formula as the required chart).
 - **Currency switcher** — pick ILS (default), USD, EUR, or GBP from the top-right selector. Typed values live-convert across currencies; saved profiles remember the currency they were created in. Hardcoded ILS-anchored rates served by the backend (`GET /api/currencies`).
 - Cypress E2E + Vitest component tests + Jest unit and integration tests.
 
@@ -56,72 +47,25 @@ Beyond the finance dashboard itself, the project focuses on building a complete 
 |----------|----------------------------------------------------------------------|
 | Frontend | React 18, TypeScript, Vite, Recharts, Vitest + RTL, Cypress         |
 | Backend  | NestJS 10, TypeScript, Prisma 5, class-validator, Jest + Supertest  |
-| Database | Local: PostgreSQL 16 Docker volume; Production: Neon PostgreSQL |
-| DevOps   | Docker + Docker Compose, GitHub Actions, Cloud Build, Artifact Registry, Cloud Deploy, Bash scripts |
+| Database | PostgreSQL 16 (named Docker volume `intelligent_investor_postgres_data`) |
+| DevOps   | Docker + Docker Compose, GitHub Actions, Bash scripts                |
 
 ---
 
 ## Architecture
 
-### Local Docker architecture
-
-<p align="center">
-  <img src="docs/assets/Intelligent-Investor-Local-Docker-Architecture.png" alt="Intelligent Investor local Docker architecture" width="100%" />
-</p>
-
-Local development runs with Docker Compose:
-
-```text
-Browser
-  ↓
-React + Vite frontend container
-  ↓
-NestJS backend container
-  ↓
-PostgreSQL Docker container
 ```
-
-### Cloud production architecture
-
-<p align="center">
-  <img src="docs/assets/Intelligent-Investor-Cloud-Production-Architecture.png" alt="Intelligent Investor cloud production architecture" width="100%" />
-</p>
-
-Production runs on managed cloud services:
-
-```text
-Browser
-  ↓
-Google Cloud Run frontend
-  ↓
-Google Cloud Run backend
-  ↓
-Neon PostgreSQL
+┌──────────────┐   HTTP    ┌──────────────┐   Prisma   ┌──────────────┐
+│  React + Vite │ ───────▶ │  NestJS API   │ ────────▶ │  PostgreSQL   │
+│   (port 80)   │          │  (port 8000)  │           │  (port 5432)  │
+└──────────────┘          └──────────────┘            └──────────────┘
+        ▲                          │                         ▲
+        │                          ▼                         │
+        │                  ┌──────────────┐                  │
+        └─── /health ──────│  Health      │── ping ──────────┘
+                           │  module      │
+                           └──────────────┘
 ```
-
-Google Secret Manager stores the production `DATABASE_URL` and injects it into the backend Cloud Run service. The frontend is built with the backend Cloud Run URL through `VITE_API_BASE_URL`.
-
-### Cloud deployment pipeline
-
-<p align="center">
-  <img src="docs/assets/Intelligent-Investor-Cloud-Deployment-Pipeline.png" alt="Intelligent Investor cloud deployment pipeline" width="100%" />
-</p>
-
-Production delivery is handled through Google Cloud's managed deployment flow:
-
-```text
-Source code
-  ↓
-Cloud Build
-  ↓
-Artifact Registry
-  ↓
-Cloud Deploy
-  ↓
-Cloud Run frontend + backend
-```
-
-Cloud Build creates versioned Docker images for the frontend and backend. Artifact Registry stores those images. Cloud Deploy creates releases and rollouts that update the Cloud Run services in a controlled way.
 
 The backend follows clean architecture: **Controller → Service → Prisma**. All financial formulas live inside `CalculationsService`; controllers contain zero math.
 
@@ -152,8 +96,8 @@ See `docs/architecture.md` for the full diagram and data flow.
 │   │   └── tests/            Vitest + RTL setup and tests
 │   └── cypress/e2e/          Cypress happy-path test
 ├── docs/                     Architecture, DB, Docker, CI/CD, deployment, testing, Git Flow, demo script
-├── deploy/cloud-deploy/      Cloud Deploy pipelines, Skaffold files, and Cloud Run service manifests
-├── scripts/                  setup-dev / run-tests / health-check / deploy-staging
+├── deploy/cloud-run/         Cloud Run deployment documentation
+├── scripts/                  setup/test/health/backup/restore/deploy automation scripts
 ├── .github/workflows/ci.yml  Pipeline
 ├── docker-compose.yml        Local stack (postgres + backend + frontend)
 ├── docker-compose.prod.yml   Production-ready compose example
@@ -176,15 +120,15 @@ All bucket math is based on **bank net (take-home)**, not gross salary.
 
 Bank-net estimator: `bankNet = grossSalary × 0.68`.
 
-Default 15-year projection (one point per year, n = 1..15):
+Required 15-year projection (one point per year, n = 1..15):
 
 ```
 value(n) = activeInvestments × (1 + 0.07)^n
 ```
 
-The Scenario Lab can vary the rate and horizon while keeping the default projection available for comparison.
+The Scenario Lab can vary the rate and horizon, but **does not replace** the required default chart.
 
-### Investment Projection
+### Investment Projection (required + optional scenario)
 
 Uses the single-amount compound formula for years 1 through the selected horizon:
 
@@ -192,12 +136,12 @@ Uses the single-amount compound formula for years 1 through the selected horizon
 value(n) = investmentAmount × (1 + annualReturn)^n
 ```
 
-Default settings use the baseline projection:
+Default settings match the **required assignment projection**:
 - `annualReturn = 7%`
 - `years = 15`
 - `investmentAmount = Active Investments bucket`
 
-When the chart uses the baseline settings, it shows a **"Default Projection"** badge. Moving the sliders enters **"Scenario Mode"**, and the reset button restores the original values. The chart calculation runs locally in the browser using the same formula as the backend.
+When at default settings the chart shows an **"Assignment Default"** badge. Moving the sliders enters optional **"Scenario Mode"**, and a "Reset to assignment default" button restores the defaults. The chart calculation runs locally in the browser (same formula as the backend).
 
 ### Extra-credit monthly contribution projection
 
@@ -207,7 +151,7 @@ Uses the future value of recurring monthly contributions (annuity formula):
 FV(y) = monthlyContribution × ((1 + r/12)^(y×12) − 1) / (r/12)
 ```
 
-This assumes the Active Investments amount is contributed **every month**. With $68/month at 7% over 15 years, the projected value is approximately **$21,553**, which shows how recurring contributions can grow much faster than a one-time investment. The backend endpoint `POST /api/calculations/monthly-contribution-projection` powers this chart; sliders for annual return and time horizon pass their values directly to the API.
+This assumes the Active Investments amount is contributed **every month**. With $68/month at 7% over 15 years, the projected value is approximately **$21,553** — far larger than the required single-amount projection (~$188). The backend endpoint `POST /api/calculations/monthly-contribution-projection` powers this chart; sliders for annual return and time horizon pass their values directly to the API.
 
 ---
 
@@ -673,152 +617,27 @@ linux/arm64
 
 ---
 
-## Cloud Production Deployment
+## Production Deployment Note
 
-The production deployment uses Google Cloud Run for the frontend and backend, Google Secret Manager for the backend `DATABASE_URL`, Neon PostgreSQL for persistent data, and Cloud Deploy for release/rollout management.
-
-```text
-Frontend:   Google Cloud Run
-Backend:    Google Cloud Run
-Images:     Artifact Registry
-Deployment: Cloud Deploy
-Secrets:    Google Secret Manager
-Database:   Neon PostgreSQL
-```
-
-Current production/demo URLs:
+The published frontend image currently points to:
 
 ```text
-Frontend: https://intelligent-investor-frontend-qlaumxyhrq-ew.a.run.app
-Backend:  https://intelligent-investor-backend-177992949217.europe-west1.run.app
-Health:   https://intelligent-investor-backend-177992949217.europe-west1.run.app/health
+http://localhost:8000
 ```
 
-### Cloud Deploy release flow
+This is correct for local usage on macOS, Windows, or Linux.
 
-Production images are built as versioned container images and stored in Artifact Registry.
-
-```text
-europe-west1-docker.pkg.dev/PROJECT_ID/intelligent-investor/frontend:<version>
-europe-west1-docker.pkg.dev/PROJECT_ID/intelligent-investor/backend:<version>
-```
-
-Cloud Deploy manages the production rollouts for both services:
-
-```text
-Frontend pipeline: intelligent-investor-frontend
-Backend pipeline:  intelligent-investor-backend
-Target region:     europe-west1
-```
-
-A typical release flow is:
+For a real public server deployment, rebuild the frontend image with the server's public backend URL:
 
 ```bash
-# Build and push images through Cloud Build
-gcloud builds submit . --config=/tmp/frontend-cloudbuild.yaml
-gcloud builds submit . --config=/tmp/backend-cloudbuild.yaml
-
-# Create Cloud Deploy releases
-gcloud deploy releases create frontend-<version> \
-  --delivery-pipeline=intelligent-investor-frontend \
-  --region=europe-west1 \
-  --source=deploy/cloud-deploy/frontend \
-  --images=frontend-image=europe-west1-docker.pkg.dev/PROJECT_ID/intelligent-investor/frontend:<version>
-
-gcloud deploy releases create backend-<version> \
-  --delivery-pipeline=intelligent-investor-backend \
-  --region=europe-west1 \
-  --source=deploy/cloud-deploy/backend \
-  --images=backend-image=europe-west1-docker.pkg.dev/PROJECT_ID/intelligent-investor/backend:<version>
-```
-
-Rollout status can be checked from the Google Cloud Console or with:
-
-```bash
-gcloud deploy rollouts list \
-  --delivery-pipeline=intelligent-investor-frontend \
-  --release=frontend-<version> \
-  --region=europe-west1
-
-gcloud deploy rollouts list \
-  --delivery-pipeline=intelligent-investor-backend \
-  --release=backend-<version> \
-  --region=europe-west1
-```
-
-### Production backend
-
-The backend Cloud Run service reads `DATABASE_URL` from Google Secret Manager.
-
-Required runtime configuration:
-
-```text
-NODE_ENV=production
-BACKEND_HOST=0.0.0.0
-BACKEND_PORT=8000
-DATABASE_URL=<stored in Google Secret Manager>
-```
-
-Deployment shape:
-
-```bash
-gcloud run services update intelligent-investor-backend \
-  --region=europe-west1 \
-  --service-account=intelligent-investor-run@PROJECT_ID.iam.gserviceaccount.com \
-  --clear-cloudsql-instances \
-  --set-secrets="DATABASE_URL=intelligent-investor-database-url:latest" \
-  --set-env-vars="NODE_ENV=production,BACKEND_HOST=0.0.0.0,BACKEND_PORT=8000" \
-  --port=8000
-```
-
-The backend health endpoint verifies both the API and database connection:
-
-```bash
-curl https://intelligent-investor-backend-177992949217.europe-west1.run.app/health
-```
-
-Expected response:
-
-```json
-{
-  "status": "ok",
-  "database": "connected"
-}
-```
-
-### Production frontend
-
-The frontend is a Vite app, so the public backend URL must be provided at build time. The resulting image is pushed to Artifact Registry and rolled out through Cloud Deploy:
-
-```bash
-docker build \
-  --build-arg VITE_API_BASE_URL=https://intelligent-investor-backend-177992949217.europe-west1.run.app \
-  -t europe-west1-docker.pkg.dev/PROJECT_ID/intelligent-investor/frontend:latest \
+docker buildx build \
+  --platform linux/amd64,linux/arm64 \
+  --build-arg VITE_API_BASE_URL=http://YOUR_SERVER_IP_OR_DOMAIN:8000 \
+  --provenance=false \
+  -t jordandaudu/intelligent-investor-frontend:prod \
+  --push \
   ./frontend
 ```
-
-The image is then released through Cloud Deploy:
-
-```bash
-gcloud deploy releases create frontend-<version> \
-  --delivery-pipeline=intelligent-investor-frontend \
-  --region=europe-west1 \
-  --source=deploy/cloud-deploy/frontend \
-  --images=frontend-image=europe-west1-docker.pkg.dev/PROJECT_ID/intelligent-investor/frontend:<version>
-```
-
-For quick manual testing, the same image can also be deployed directly with `gcloud run deploy`, but the production workflow uses Cloud Deploy so releases and rollouts are tracked.
-
-### Production database
-
-Production uses Neon PostgreSQL instead of the local Docker PostgreSQL container.
-
-Important notes:
-
-- The Neon connection string is stored only in Google Secret Manager.
-- The connection string is never committed to Git.
-- Prisma schema changes should be applied carefully before redeploying the backend.
-- Local Docker data and Neon production data are separate databases.
 
 ---
 
@@ -1024,22 +843,16 @@ Pipeline file: `.github/workflows/ci.yml`. Stages:
 2. **Frontend install** → **Frontend component tests** → **Frontend build**
 3. **Docker build validation** (PRs into dev/stage/main and pushes to those)
 4. **Cypress E2E** — Docker Compose stack + `/health` wait + `cypress run` + teardown
-5. **Staging deployment** + **Staging health check** (push to `stage`)
-6. **Production deployment hook** (push to `main`)
+5. **Staging deployment to Cloud Run** (push to `stage`)
+6. **Production deployment to Cloud Run** (push to `main`, extra credit)
 
-The current production cloud flow uses Google Cloud services for delivery:
+The staging and production deployment jobs use Google Cloud authentication, build Docker images, push them to Artifact Registry, deploy backend/frontend services to Cloud Run, and verify the backend `/health` endpoint before the deployment is considered successful.
 
-```text
-Cloud Build → Artifact Registry → Cloud Deploy → Cloud Run
-```
-
-Cloud Deploy tracks frontend and backend releases separately, which makes it easy to see rollout status, active revisions, and deployment history from the Google Cloud Console.
-
-See `docs/ci-cd.md` for full details.
+See `docs/ci-cd.md` for the required GitHub Actions secrets and full pipeline details.
 
 ### Staging deployment
 
-On push to `stage`, CI runs `staging-deployment` and then `staging-health-check`, which polls `${STAGING_API_URL}/health` until it returns 200. If the URL secret is not configured, the job exits safely with a warning. `scripts/deploy-staging.sh` can be connected to the hosting provider used by the project.
+On push to `stage`, CI runs `staging-deployment`, which deploys the backend and frontend Docker images to Google Cloud Run using `scripts/deploy-staging.sh`. The deployment script checks the backend `/health` endpoint and fails the job if it does not return HTTP 200.
 
 ### How to trigger deployment
 
@@ -1053,7 +866,7 @@ git checkout -b feature/my-change
 # after review, merge feature/* into dev
 # after dev is stable, open a PR from dev into stage
 # merging into stage triggers the staging deployment job
-# merging stage into main triggers the production deployment hook
+# merging stage into main triggers the production Cloud Run deployment
 ```
 
 Required deployment secrets are documented in `docs/ci-cd.md`.
@@ -1124,4 +937,4 @@ A concise walkthrough script lives in `docs/presentation-script.md`. It covers e
 
 ## License
 
-MIT — for educational and portfolio use.
+MIT — for educational purposes (final assignment).

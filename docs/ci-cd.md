@@ -1,36 +1,85 @@
 # CI / CD
 
-Pipeline: `.github/workflows/ci.yml`. Triggered on push to any `feature/*`, `dev`, `stage`, `main` and on pull requests targeting `dev`, `stage`, or `main`.
+Pipeline: `.github/workflows/ci.yml`.
+
+The workflow runs on:
+
+- Pushes to `feature/**`, `dev`, `stage`, and `main`
+- Pull requests targeting `dev`, `stage`, or `main`
 
 ## Jobs
 
-| Job                                | When                                                       | What it does                                                                  |
-|------------------------------------|------------------------------------------------------------|-------------------------------------------------------------------------------|
-| `backend`                          | every push / PR                                             | Backend install → Prisma generate → DB push → unit tests → integration tests → build |
-| `frontend`                         | every push / PR                                             | Frontend install → component tests → build                                    |
-| `docker-build`                     | PRs into dev/stage/main + pushes to those                   | `docker compose config` for both files, then builds both images               |
-| `cypress-e2e`                      | PRs into dev/stage/main + pushes to those                   | `docker compose up --build` → wait for `/health` → `cypress run` → `docker compose down -v` |
-| `staging-deployment`               | push to `stage`                                             | Placeholder deploy step (skips safely if `STAGING_DEPLOY_HOST` is missing)    |
-| `staging-health-check`             | push to `stage`                                             | Polls `${STAGING_API_URL}/health` until 200 (skips with warning if unset)     |
-| `production-deployment-placeholder`| push to `main`                                              | Placeholder for prod deploy (skips silently if `PROD_DEPLOY_HOST` is missing) |
+| Job | When | What it does |
+|---|---|---|
+| `backend` | every push / PR | Installs backend dependencies, generates Prisma client, applies schema, runs unit tests, runs integration tests, and builds the NestJS app |
+| `frontend` | every push / PR | Installs frontend dependencies, runs Vitest component/API tests, and builds the Vite app |
+| `docker-build` | PRs into dev/stage/main + pushes to dev/stage/main | Validates Docker Compose files and builds backend/frontend Docker images |
+| `cypress-e2e` | PRs into dev/stage/main + pushes to dev/stage/main | Starts the full Docker Compose stack, waits for backend `/health`, runs Cypress, and tears down containers |
+| `staging-deployment` | push to `stage` | Builds and pushes Docker images, deploys staging backend/frontend services to Google Cloud Run, and verifies backend `/health` |
+| `production-deployment` | push to `main` | Builds and pushes Docker images, deploys production backend/frontend services to Google Cloud Run, and verifies backend `/health` |
 
 ## Postgres in CI
 
-The `backend` job spins up a `postgres:16-alpine` service container and runs both unit tests (don't touch the DB) and the integration suite (which exercises every endpoint, including `/health` and the profiles CRUD).
+The `backend` job uses a `postgres:16-alpine` service container.
 
-## Secrets
+The backend test job runs:
 
-| Secret                | Used by                | Purpose                                  |
-|-----------------------|------------------------|------------------------------------------|
-| `STAGING_DEPLOY_HOST` | `staging-deployment`   | SSH host / platform identifier            |
-| `STAGING_API_URL`     | `staging-health-check` | Public URL the health probe pings         |
-| `PROD_DEPLOY_HOST`    | `production-deployment-placeholder` | SSH host / platform identifier |
+- Prisma client generation
+- Schema push into the CI PostgreSQL database
+- Unit tests for calculation and service logic
+- Integration tests for REST endpoints, including `/health`
 
-If any of these are missing, the corresponding step prints a warning/notice and exits 0 — the pipeline does **not** fail just because deployment isn't configured yet (per the assignment rules).
+## Required GitHub Actions secrets
 
-## Stage names (graded)
+The Cloud Run deployment jobs require these repository secrets.
 
-The pipeline uses the named stages required by the brief:
+| Secret | Used by | Purpose |
+|---|---|---|
+| `GCP_PROJECT_ID` | staging + production deployment | Google Cloud project ID |
+| `GCP_REGION` | staging + production deployment | Google Cloud region, for example `europe-west1` |
+| `GCP_ARTIFACT_REPOSITORY` | staging + production deployment | Artifact Registry Docker repository name |
+| `GCP_WORKLOAD_IDENTITY_PROVIDER` | staging + production deployment | Workload Identity provider for GitHub Actions authentication |
+| `GCP_SERVICE_ACCOUNT` | staging + production deployment | Google Cloud service account used by GitHub Actions |
+| `CLOUD_RUN_SERVICE_ACCOUNT` | staging + production deployment | Runtime service account assigned to Cloud Run services |
+| `STAGING_BACKEND_SERVICE` | staging deployment | Staging backend Cloud Run service name |
+| `STAGING_FRONTEND_SERVICE` | staging deployment | Staging frontend Cloud Run service name |
+| `STAGING_DATABASE_URL` | staging deployment | Staging PostgreSQL connection string |
+| `PRODUCTION_BACKEND_SERVICE` | production deployment | Production backend Cloud Run service name |
+| `PRODUCTION_FRONTEND_SERVICE` | production deployment | Production frontend Cloud Run service name |
+| `PRODUCTION_DATABASE_URL` | production deployment | Production PostgreSQL connection string |
+
+Database credentials are not committed to the repository. The deployment script stores `DATABASE_URL` in Google Secret Manager and injects it into Cloud Run.
+
+## Deployment flow
+
+### Staging
+
+A push or merge into `stage` triggers:
+
+1. Backend tests
+2. Frontend tests
+3. Docker build validation
+4. Cypress E2E test
+5. Cloud Run staging deployment
+6. Backend `/health` verification
+
+Deployment script:
+
+    scripts/deploy-staging.sh
+
+### Production
+
+A push or merge into `main` triggers the production deployment flow.
+
+Deployment script:
+
+    scripts/deploy-production.sh
+
+Production deployment is treated as extra credit for the assignment.
+
+## Stage names shown in GitHub Actions
+
+The workflow contains clearly named stages:
 
 - Backend install
 - Backend unit tests
@@ -42,17 +91,12 @@ The pipeline uses the named stages required by the brief:
 - Docker build validation
 - Cypress E2E
 - Staging deployment
-- Staging health check
-- Production deployment placeholder
+- Production deployment
 
 ## CI/CD Evidence
 
 A successful GitHub Actions run should be captured before final submission and added here.
 
-Suggested screenshot path: `docs/assets/ci-success.png`
+Successful CI/CD run:
 
-Place the screenshot in `docs/assets/` (the folder is tracked via `docs/assets/.gitkeep`) and update this section with the embedded image once captured:
-
-```markdown
 ![CI success](assets/ci-success.png)
-```
