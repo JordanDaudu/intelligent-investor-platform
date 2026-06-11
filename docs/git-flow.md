@@ -82,4 +82,4 @@ These promotion PRs are **not** automated — the team performs them manually af
 | PR into `stage`               | Test/build + `docker-build`. Prepares for staging.                      |
 | Push/merge to `stage`         | Test/build + `docker-build` + `staging-deployment` + `staging-health-check`. |
 | PR into `main`                | Test/build + `docker-build`. Production-readiness gate.                 |
-| Push/merge to `main`          | Test/build + `production-deployment-placeholder` (skips safely if no secrets). |
+| Push/merge to `main`          | Test/build + `production-deployment` to Cloud Run. |
