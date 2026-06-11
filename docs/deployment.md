@@ -22,7 +22,7 @@ Recommended provider-agnostic flow:
 
 The CI pipeline:
 
-- On push to `stage`, runs the test + build matrix, then `staging-deployment` (a placeholder you wire to step 4 above), then `staging-health-check` which polls `${STAGING_API_URL}/health`.
+- On push to `stage`, runs the test + build matrix, then `staging-deployment`, which builds and pushes Docker images, deploys the backend and frontend to Cloud Run, and verifies the backend `/health` endpoint.
 
 ## Production (extra credit)
 

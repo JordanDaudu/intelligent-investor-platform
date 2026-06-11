@@ -63,7 +63,7 @@ Open `.github/workflows/ci.yml` in the IDE. Walk through:
 - Docker build validation job.
 - **Cypress E2E job** — spins up the full stack via Docker Compose, polls `/health`, runs `cypress run`, always tears down.
 - Staging deploy + health check.
-- Production placeholder (extra credit).
+- Production Cloud Run deployment (extra credit).
 
 ### Git Flow
 
