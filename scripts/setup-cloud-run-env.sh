@@ -25,6 +25,7 @@ gcloud config set project "$GCP_PROJECT_ID" >/dev/null
 
 echo "==> Enabling required APIs"
 gcloud services enable \
+  cloudresourcemanager.googleapis.com \
   run.googleapis.com \
   artifactregistry.googleapis.com \
   secretmanager.googleapis.com \
