@@ -97,10 +97,6 @@ The workflow contains clearly named stages:
 
 A successful GitHub Actions run should be captured before final submission and added here.
 
-Suggested screenshot path:
+Successful CI/CD run:
 
-    docs/assets/ci-success.png
-
-After the screenshot is added, embed it like this:
-
-    ![CI success](assets/ci-success.png)
+![CI success](assets/ci-success.png)
