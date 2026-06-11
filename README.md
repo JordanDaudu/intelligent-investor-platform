@@ -96,7 +96,8 @@ See `docs/architecture.md` for the full diagram and data flow.
 │   │   └── tests/            Vitest + RTL setup and tests
 │   └── cypress/e2e/          Cypress happy-path test
 ├── docs/                     Architecture, DB, Docker, CI/CD, deployment, testing, Git Flow, demo script
-├── scripts/                  setup-dev / run-tests / health-check / deploy-staging
+├── deploy/cloud-run/         Cloud Run deployment documentation
+├── scripts/                  setup/test/health/backup/restore/deploy automation scripts
 ├── .github/workflows/ci.yml  Pipeline
 ├── docker-compose.yml        Local stack (postgres + backend + frontend)
 ├── docker-compose.prod.yml   Production-ready compose example
@@ -841,17 +842,17 @@ Pipeline file: `.github/workflows/ci.yml`. Stages:
 1. **Backend install** → **Backend unit tests** → **Backend integration tests** → **Backend build**
 2. **Frontend install** → **Frontend component tests** → **Frontend build**
 3. **Docker build validation** (PRs into dev/stage/main and pushes to those)
-4. **Cypress E2E** — Docker Compose stack + `/health` wait + `cypress run` + teardown (same trigger as Docker validation)
-5. **Staging deployment** + **Staging health check** (push to `stage`)
-6. **Production deployment placeholder** (push to `main`)
+4. **Cypress E2E** — Docker Compose stack + `/health` wait + `cypress run` + teardown
+5. **Staging deployment to Cloud Run** (push to `stage`)
+6. **Production deployment to Cloud Run** (push to `main`, extra credit)
 
-Deploy jobs are conditional on real secrets (`STAGING_DEPLOY_HOST`, `STAGING_API_URL`, `PROD_DEPLOY_HOST`). Without them, the pipeline still passes — perfect for a graded scaffold.
+The staging and production deployment jobs use Google Cloud authentication, build Docker images, push them to Artifact Registry, deploy backend/frontend services to Cloud Run, and verify the backend `/health` endpoint before the deployment is considered successful.
 
-See `docs/ci-cd.md` for full details.
+See `docs/ci-cd.md` for the required GitHub Actions secrets and full pipeline details.
 
 ### Staging deployment
 
-On push to `stage`, CI runs `staging-deployment` (a placeholder) and then `staging-health-check`, which polls `${STAGING_API_URL}/health` until it returns 200 (or warns and exits if the URL secret isn't set). Wire `scripts/deploy-staging.sh` to your real hosting provider when ready.
+On push to `stage`, CI runs `staging-deployment`, which deploys the backend and frontend Docker images to Google Cloud Run using `scripts/deploy-staging.sh`. The deployment script checks the backend `/health` endpoint and fails the job if it does not return HTTP 200.
 
 ### How to trigger deployment
 
@@ -865,7 +866,7 @@ git checkout -b feature/my-change
 # after review, merge feature/* into dev
 # after dev is stable, open a PR from dev into stage
 # merging into stage triggers the staging deployment job
-# merging stage into main triggers the production deployment placeholder
+# merging stage into main triggers the production Cloud Run deployment
 ```
 
 Required deployment secrets are documented in `docs/ci-cd.md`.

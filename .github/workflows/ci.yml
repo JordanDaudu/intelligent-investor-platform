@@ -263,92 +263,94 @@ jobs:
         if: always()
         run: docker compose down -v
 
-  # =========================================================================
-  # Staging deployment (push/merge to stage). Conditional on secrets being
-  # configured — skips safely otherwise so CI still passes.
+    # =========================================================================
+  # Staging deployment (push/merge to stage).
+  # Runs only after backend, frontend, Docker build, and Cypress E2E pass.
+  # The deploy script builds/pushes Docker images, deploys to Cloud Run,
+  # and verifies the backend /health endpoint.
   # =========================================================================
   staging-deployment:
-    name: Staging deployment
+    name: Staging deployment (Cloud Run)
     runs-on: ubuntu-latest
-    needs: [backend, frontend, docker-build]
+    needs: [backend, frontend, docker-build, cypress-e2e]
     if: github.event_name == 'push' && github.ref == 'refs/heads/stage'
     environment: staging
+    permissions:
+      contents: read
+      id-token: write
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Check for staging secrets
-        id: secrets
-        env:
-          STAGING_DEPLOY_HOST: ${{ secrets.STAGING_DEPLOY_HOST }}
-        run: |
-          if [ -n "${STAGING_DEPLOY_HOST}" ]; then
-            echo "configured=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "configured=false" >> "$GITHUB_OUTPUT"
-            echo "::warning::Staging deploy secrets not configured — skipping deploy step."
-          fi
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
 
-      - name: Deploy to staging (placeholder)
-        if: steps.secrets.outputs.configured == 'true'
-        env:
-          STAGING_DEPLOY_HOST: ${{ secrets.STAGING_DEPLOY_HOST }}
-        run: |
-          echo "Deploying to ${STAGING_DEPLOY_HOST}..."
-          echo "Replace this with your real deployment command (ssh + docker compose pull && up -d, or platform-specific CLI)."
+      - name: Setup gcloud
+        uses: google-github-actions/setup-gcloud@v2
 
-  staging-health-check:
-    name: Staging health check
-    runs-on: ubuntu-latest
-    needs: staging-deployment
-    if: github.event_name == 'push' && github.ref == 'refs/heads/stage'
-    steps:
-      - name: Probe /health
+      - name: Deploy staging to Cloud Run
+        id: deploy
         env:
-          STAGING_API_URL: ${{ secrets.STAGING_API_URL }}
+          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+          GCP_REGION: ${{ secrets.GCP_REGION }}
+          ARTIFACT_REPOSITORY: ${{ secrets.GCP_ARTIFACT_REPOSITORY }}
+          BACKEND_SERVICE: ${{ secrets.STAGING_BACKEND_SERVICE }}
+          FRONTEND_SERVICE: ${{ secrets.STAGING_FRONTEND_SERVICE }}
+          DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+          CLOUD_RUN_SERVICE_ACCOUNT: ${{ secrets.CLOUD_RUN_SERVICE_ACCOUNT }}
+          IMAGE_TAG: staging-${{ github.sha }}
+        run: bash scripts/deploy-staging.sh
+
+      - name: Print staging URLs
         run: |
-          if [ -z "${STAGING_API_URL}" ]; then
-            echo "::warning::STAGING_API_URL not set — skipping live health check."
-            exit 0
-          fi
-          for i in 1 2 3 4 5 6; do
-            if curl -fsS "${STAGING_API_URL}/health"; then
-              echo "Staging is healthy."
-              exit 0
-            fi
-            echo "Waiting for staging health... attempt $i"
-            sleep 10
-          done
-          echo "::error::Staging /health did not return 200"
-          exit 1
+          echo "Backend: ${{ steps.deploy.outputs.backend_url }}"
+          echo "Frontend: ${{ steps.deploy.outputs.frontend_url }}"
 
   # =========================================================================
-  # Production deployment placeholder (push/merge to main).
-  # Conditional on secrets — pipeline NEVER fails for missing prod secrets.
+  # Production deployment (push/merge to main).
+  # Extra-credit production deployment using the same Cloud Run automation.
   # =========================================================================
-  production-deployment-placeholder:
-    name: Production deployment placeholder
+  production-deployment:
+    name: Production deployment (Cloud Run)
     runs-on: ubuntu-latest
-    needs: [backend, frontend]
+    needs: [backend, frontend, docker-build, cypress-e2e]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     environment: production
-    steps:
-      - name: Check for production secrets
-        id: prod_secrets
-        env:
-          PROD_DEPLOY_HOST: ${{ secrets.PROD_DEPLOY_HOST }}
-        run: |
-          if [ -n "${PROD_DEPLOY_HOST}" ]; then
-            echo "configured=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "configured=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::Production deploy secrets not configured — placeholder run only (extra credit)."
-          fi
+    permissions:
+      contents: read
+      id-token: write
 
-      - name: Deploy to production (placeholder)
-        if: steps.prod_secrets.outputs.configured == 'true'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Setup gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Deploy production to Cloud Run
+        id: deploy
         env:
-          PROD_DEPLOY_HOST: ${{ secrets.PROD_DEPLOY_HOST }}
+          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+          GCP_REGION: ${{ secrets.GCP_REGION }}
+          ARTIFACT_REPOSITORY: ${{ secrets.GCP_ARTIFACT_REPOSITORY }}
+          BACKEND_SERVICE: ${{ secrets.PRODUCTION_BACKEND_SERVICE }}
+          FRONTEND_SERVICE: ${{ secrets.PRODUCTION_FRONTEND_SERVICE }}
+          DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
+          CLOUD_RUN_SERVICE_ACCOUNT: ${{ secrets.CLOUD_RUN_SERVICE_ACCOUNT }}
+          IMAGE_TAG: production-${{ github.sha }}
+        run: bash scripts/deploy-production.sh
+
+      - name: Print production URLs
         run: |
-          echo "Deploying to production at ${PROD_DEPLOY_HOST}..."
-          echo "Replace with your real production deploy command."
+          echo "Backend: ${{ steps.deploy.outputs.backend_url }}"
+          echo "Frontend: ${{ steps.deploy.outputs.frontend_url }}"
