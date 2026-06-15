@@ -9,7 +9,11 @@ A full-stack DevOps final assignment that helps users plan their monthly cash fl
 The project is intentionally heavy on DevOps practices — Docker, Git Flow, CI/CD, automated tests, health checks, environment variables, and documentation — because that's what the assignment is graded on.
 
 <p align="center">
-  <img src="docs/assets/Intelligent-Investor-Local-Docker-Architecture.png" alt="Intelligent Investor Platform banner" width="100%" />
+  <img src="docs/assets/Intelligent-Investor-Local-Docker-Architecture.png" alt="Intelligent Investor local Docker architecture" width="100%" />
+</p>
+
+<p align="center">
+  <img src="docs/assets/Intelligent-Investor-Cloud-Production-Architecture.png" alt="Intelligent Investor cloud production architecture" width="100%" />
 </p>
 
 ## Quick links
@@ -847,6 +851,14 @@ Pipeline file: `.github/workflows/ci.yml`. Stages:
 6. **Production deployment to Cloud Run** (push to `main`, extra credit)
 
 The staging and production deployment jobs use Google Cloud authentication, build Docker images, push them to Artifact Registry, deploy backend/frontend services to Cloud Run, and verify the backend `/health` endpoint before the deployment is considered successful.
+
+<p align="center">
+  <img src="docs/assets/Intelligent-Investor-Cloud-Deployment-Pipeline.png" alt="Intelligent Investor cloud deployment pipeline" width="100%" />
+</p>
+
+<p align="center">
+  <img src="docs/assets/ci-success.png" alt="GitHub Actions CI success screenshot" width="100%" />
+</p>
 
 See `docs/ci-cd.md` for the required GitHub Actions secrets and full pipeline details.
 
